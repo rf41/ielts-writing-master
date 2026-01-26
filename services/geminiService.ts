@@ -3,8 +3,8 @@ import { ChartType, Task1Data, Task2Data, CorrectionResponse, FeedbackResult, Ta
 
 // Helper to get client safely
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key not found");
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) throw new Error("API Key not found. Please set VITE_GEMINI_API_KEY in environment variables.");
   return new GoogleGenAI({ apiKey });
 };
 
