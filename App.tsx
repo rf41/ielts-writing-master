@@ -1,15 +1,49 @@
 import React, { useState } from 'react';
 import Task1 from './components/Task1';
 import Task2 from './components/Task2';
+import Login from './components/Login';
+import Register from './components/Register';
+import UserProfile from './components/UserProfile';
 import { TaskType, HistoryEntry } from './types';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState<TaskType>(TaskType.TASK_1);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [showProfile, setShowProfile] = useState(false);
+  const { currentUser, loading, logout } = useAuth();
 
   const addToHistory = (entry: HistoryEntry) => {
     setHistory(prev => [entry, ...prev]);
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return authView === 'login' ? (
+      <Login onSwitchToRegister={() => setAuthView('register')} />
+    ) : (
+      <Register onSwitchToLogin={() => setAuthView('login')} />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-slate-50 font-sans">
@@ -25,8 +59,27 @@ function App() {
               </div>
               <h1 className="text-xl font-bold text-gray-900 tracking-tight">IELTS Writing Master</h1>
             </div>
-            <div className="text-sm text-gray-500">
-              Session History: <span className="font-bold text-gray-800">{history.length}</span> items
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-500">
+                Session History: <span className="font-bold text-gray-800">{history.length}</span> items
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowProfile(true)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition"
+                >
+                  <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-semibold">
+                    {currentUser.displayName?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{currentUser.displayName || 'User'}</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -77,7 +130,18 @@ function App() {
               Powered by Google Gemini 2.5 Flash & Pro. Scores are estimates only and not official IELTS results.
           </div>
       </footer>
+
+      {/* User Profile Modal */}
+      {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
