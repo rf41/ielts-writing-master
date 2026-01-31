@@ -1,10 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ChartType, Task1Data, Task2Data, CorrectionResponse, FeedbackResult, TaskType } from "../types";
 
-// Helper to get client safely
+// Helper to get client safely - checks for custom API key first
 const getClient = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key not found. Please set VITE_GEMINI_API_KEY in environment variables.");
+  // Check for custom API key in localStorage first
+  const customApiKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+  const apiKey = customApiKey || import.meta.env.VITE_GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("API Key not found. Please set your Gemini API key in settings or environment variables.");
+  }
+  
+  console.log('Using API key:', customApiKey ? 'Custom (from settings)' : 'Default (from environment)');
   return new GoogleGenAI({ apiKey });
 };
 

@@ -6,10 +6,13 @@ import Register from './components/Register';
 import UserProfile from './components/UserProfile';
 import HistorySidebar from './components/HistorySidebar';
 import QuestionExporter from './components/QuestionExporter';
+import OnlineUserCounter from './components/OnlineUserCounter';
+import ApiKeySettings from './components/ApiKeySettings';
 import { TaskType, HistoryEntry } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DarkModeProvider, useDarkMode } from './contexts/DarkModeContext';
 import { getUserHistory, saveHistory, deleteHistory } from './services/historyService';
+import { startHeartbeat, stopHeartbeat, cleanupStaleUsers } from './services/onlineUserService';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TaskType>(TaskType.TASK_1);
@@ -17,10 +20,26 @@ function AppContent() {
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [showProfile, setShowProfile] = useState(false);
   const [showExporter, setShowExporter] = useState(false);
+  const [showApiSettings, setShowApiSettings] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [hasCustomApiKey, setHasCustomApiKey] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const { currentUser, loading, logout } = useAuth();
   const { isDark, toggleDarkMode } = useDarkMode();
+
+  // Check for custom API key on mount
+  useEffect(() => {
+    const checkCustomKey = () => {
+      const customKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+      setHasCustomApiKey(!!customKey);
+    };
+    
+    checkCustomKey();
+    
+    // Listen for storage changes (in case key is added/removed)
+    window.addEventListener('storage', checkCustomKey);
+    return () => window.removeEventListener('storage', checkCustomKey);
+  }, []);
 
   // Load user history when user logs in
   useEffect(() => {
@@ -28,6 +47,27 @@ function AppContent() {
       loadUserHistory();
     } else {
       setHistory([]);
+    }
+  }, [currentUser]);
+
+  // Online user tracking
+  useEffect(() => {
+    if (currentUser) {
+      console.log('Starting online tracking for user:', currentUser.uid, currentUser.displayName || currentUser.email);
+      const userName = currentUser.displayName || currentUser.email || 'Anonymous';
+      const heartbeatInterval = startHeartbeat(currentUser.uid, userName);
+      
+      // Cleanup stale users every minute
+      const cleanupInterval = setInterval(() => {
+        cleanupStaleUsers();
+      }, 60000);
+      
+      // Cleanup on unmount or logout
+      return () => {
+        console.log('Stopping online tracking for user:', currentUser.uid);
+        stopHeartbeat(heartbeatInterval, currentUser.uid);
+        clearInterval(cleanupInterval);
+      };
     }
   }, [currentUser]);
 
@@ -116,9 +156,36 @@ function AppContent() {
               <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">IELTS Writing Master</h1>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Session History: <span className="font-bold text-gray-800 dark:text-gray-200">{history.length}</span> items
-              </div>
+              {/* API Key Settings Button */}
+              <button
+                onClick={() => setShowApiSettings(true)}
+                className={`relative p-2 rounded-lg transition-colors ${
+                  hasCustomApiKey 
+                    ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={hasCustomApiKey ? 'Using Custom API Key' : 'API Key Settings'}
+              >
+                <svg 
+                  className={`w-5 h-5 transition-colors ${
+                    hasCustomApiKey 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-gray-600 dark:text-gray-300'
+                  }`} 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                {/* Green dot indicator */}
+                {hasCustomApiKey && (
+                  <>
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                  </>
+                )}
+              </button>
               
               {/* Export Questions Button */}
               <button
@@ -233,6 +300,17 @@ function AppContent() {
       
       {/* Question Exporter Modal */}
       {showExporter && <QuestionExporter onClose={() => setShowExporter(false)} />}
+      
+      {/* API Key Settings Modal */}
+      {showApiSettings && <ApiKeySettings onClose={() => {
+        setShowApiSettings(false);
+        // Recheck custom key status after modal closes
+        const customKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+        setHasCustomApiKey(!!customKey);
+      }} />}
+      
+      {/* Online User Counter */}
+      <OnlineUserCounter />
     </div>
   );
 }
