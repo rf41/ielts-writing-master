@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Task1 from './components/Task1';
 import Task2 from './components/Task2';
 import Login from './components/Login';
@@ -6,16 +6,51 @@ import Register from './components/Register';
 import UserProfile from './components/UserProfile';
 import { TaskType, HistoryEntry } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { getUserHistory, saveHistory } from './services/historyService';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TaskType>(TaskType.TASK_1);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [showProfile, setShowProfile] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const { currentUser, loading, logout } = useAuth();
 
-  const addToHistory = (entry: HistoryEntry) => {
+  // Load user history when user logs in
+  useEffect(() => {
+    if (currentUser) {
+      loadUserHistory();
+    } else {
+      setHistory([]);
+    }
+  }, [currentUser]);
+
+  const loadUserHistory = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setHistoryLoading(true);
+      const userHistory = await getUserHistory(currentUser.uid);
+      setHistory(userHistory);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const addToHistory = async (entry: HistoryEntry) => {
+    if (!currentUser) return;
+    
+    // Add to local state immediately
     setHistory(prev => [entry, ...prev]);
+    
+    // Save to Firestore
+    try {
+      await saveHistory(currentUser.uid, entry);
+    } catch (error) {
+      console.error('Failed to save history:', error);
+    }
   };
 
   const handleLogout = async () => {

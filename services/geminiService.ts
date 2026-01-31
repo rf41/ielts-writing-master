@@ -23,7 +23,7 @@ export const generateTask1Prompt = async (chartType: ChartType): Promise<Task1Da
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -42,7 +42,7 @@ export const generateTask2Prompt = async (): Promise<Task2Data> => {
   Return JSON with 'topic' (short title) and 'prompt' (the full essay question).`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -82,7 +82,7 @@ export const checkGrammar = async (text: string): Promise<CorrectionResponse> =>
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -137,7 +137,7 @@ export const evaluateWriting = async (taskType: TaskType, question: string, text
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       responseMimeType: "application/json",
