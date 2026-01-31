@@ -8,6 +8,7 @@ import HistorySidebar from './components/HistorySidebar';
 import QuestionExporter from './components/QuestionExporter';
 import OnlineUserCounter from './components/OnlineUserCounter';
 import ApiKeySettings from './components/ApiKeySettings';
+import DonationModal from './components/DonationModal';
 import { TaskType, HistoryEntry } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DarkModeProvider, useDarkMode } from './contexts/DarkModeContext';
@@ -21,6 +22,7 @@ function AppContent() {
   const [showProfile, setShowProfile] = useState(false);
   const [showExporter, setShowExporter] = useState(false);
   const [showApiSettings, setShowApiSettings] = useState(false);
+  const [showDonation, setShowDonation] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [hasCustomApiKey, setHasCustomApiKey] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
@@ -145,7 +147,7 @@ function AppContent() {
     <div className="h-full flex flex-col bg-slate-50 dark:bg-gray-900 font-sans transition-colors">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <div className="bg-primary text-white p-1.5 rounded-lg">
@@ -155,7 +157,7 @@ function AppContent() {
               </div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">IELTS Writing Master</h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* API Key Settings Button */}
               <button
                 onClick={() => setShowApiSettings(true)}
@@ -187,6 +189,24 @@ function AppContent() {
                 )}
               </button>
               
+              {/* Buy Us a Coffee Button */}
+              <button
+                onClick={() => setShowDonation(true)}
+                className="p-2 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors group"
+                title="Buy Us a Coffee"
+              >
+                <svg 
+                  className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h15v13c0 1.66-1.34 3-3 3H6c-1.66 0-3-1.34-3-3V3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8h1a3 3 0 013 3v0a3 3 0 01-3 3h-1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 21h9" />
+                </svg>
+              </button>
+              
               {/* Export Questions Button */}
               <button
                 onClick={() => setShowExporter(true)}
@@ -196,7 +216,6 @@ function AppContent() {
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                <span className="hidden sm:inline">Export</span>
               </button>
               
               {/* Dark Mode Toggle */}
@@ -291,7 +310,7 @@ function AppContent() {
       {/* Disclaimer */}
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4">
           <div className="max-w-7xl mx-auto px-4 text-center text-xs text-gray-400 dark:text-gray-500">
-              Powered by Google Gemini 2.5 Flash & Pro. Scores are estimates only and not official IELTS results.
+              Dev <a href="https://ridwancard.my.id" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">ridwancard.my.id</a>. Scores are estimates only and not official IELTS results.
           </div>
       </footer>
 
@@ -308,6 +327,9 @@ function AppContent() {
         const customKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
         setHasCustomApiKey(!!customKey);
       }} />}
+      
+      {/* Donation Modal */}
+      {showDonation && <DonationModal onClose={() => setShowDonation(false)} />}
       
       {/* Online User Counter */}
       <OnlineUserCounter />

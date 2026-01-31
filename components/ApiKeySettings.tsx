@@ -67,7 +67,7 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onClose }) => {
                       Gemini API Key Settings
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {isUsingCustomKey ? 'Status: Using your custom API key' : 'Status:Using default API key'}
+                      {isUsingCustomKey ? 'Status: Using your custom API key' : 'Status: Using default API key'}
                     </p>
                   </div>
                 </div>
