@@ -5,7 +5,7 @@ interface DonationModalProps {
 }
 
 const DonationModal: React.FC<DonationModalProps> = ({ onClose }) => {
-  const donationLink = 'https://buymeacoffee.com/yourname'; // Dummy link
+  const donationLink = 'https://saweria.co/rfdev'; // Dummy link
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(donationLink);
