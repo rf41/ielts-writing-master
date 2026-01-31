@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -18,7 +19,7 @@
       }
     </script>
   </head>
-  <body class="bg-slate-50 text-slate-900 h-screen overflow-hidden">
+  <body class="bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100 h-screen overflow-hidden">
     <div id="root" class="h-full"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

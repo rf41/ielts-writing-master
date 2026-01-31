@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Task2Data, TaskType, FeedbackResult, HistoryEntry, GrammarSegment } from '../types';
 import { generateTask2Prompt, evaluateWriting } from '../services/geminiService';
+import { saveQuestion } from '../services/questionService';
 import WritingEditor from './WritingEditor';
 import ScoreFeedback from './ScoreFeedback';
-import HistoryList from './HistoryList';
-import HistoryModal from './HistoryModal';
 
 interface Task2Props {
   history: HistoryEntry[];
@@ -18,19 +17,16 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
   const [evaluating, setEvaluating] = useState(false);
   const [currentSegments, setCurrentSegments] = useState<GrammarSegment[]>([]);
-  const [viewingHistory, setViewingHistory] = useState<HistoryEntry | null>(null);
 
   const handleGenerate = async () => {
     // Save current session to history if it has feedback
     if (taskData && feedback && userText) {
       onAddToHistory({
-        id: Date.now().toString(),
-        timestamp: new Date(),
-        taskType: TaskType.TASK_2,
-        title: taskData.topic,
-        question: taskData.prompt,
+        taskType: 'Task 2',
+        prompt: taskData.prompt,
         userText: userText,
         feedback: feedback,
+        timestamp: new Date().toISOString(),
         grammarSegments: currentSegments
       });
     }
@@ -43,6 +39,13 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
     try {
       const data = await generateTask2Prompt();
       setTaskData(data);
+      
+      // Save question to database
+      await saveQuestion({
+        taskType: 'Task 2',
+        prompt: data.prompt,
+        task2Data: data
+      });
     } catch (e) {
       console.error(e);
       alert("Failed to generate task. Please try again.");
@@ -70,12 +73,12 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-20">
       {/* Controls */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-        <div className="text-gray-700 font-medium">IELTS Writing Task 2 (Essay)</div>
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
+        <div className="text-gray-700 dark:text-gray-300 font-medium">IELTS Writing Task 2 (Essay)</div>
         <button 
             onClick={handleGenerate} 
             disabled={loading}
-            className="px-6 py-2 bg-secondary text-white rounded-lg hover:bg-slate-700 transition disabled:opacity-50 font-medium shadow-sm"
+            className="px-6 py-2 bg-secondary dark:bg-gray-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-600 transition disabled:opacity-50 font-medium shadow-sm"
         >
             {loading ? 'Generating...' : taskData ? 'Generate New & Save' : 'Generate Topic'}
         </button>
@@ -83,8 +86,8 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
 
       {/* Task Content */}
       {taskData && (
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 animate-fade-in-down">
-          <div className="mb-6 p-6 bg-blue-50 rounded-lg border border-blue-100">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 animate-fade-in-down">
+          <div className="mb-6 p-6 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
             <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wide mb-1">{taskData.topic}</h3>
             <p className="text-lg font-semibold text-gray-900 leading-snug">{taskData.prompt}</p>
           </div>
@@ -106,14 +109,10 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
       )}
 
       {!taskData && !loading && (
-        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-            <p className="text-gray-500 text-lg">Click "Generate Topic" to start practicing.</p>
+        <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+            <p className="text-gray-500 dark:text-gray-400 text-lg">Click "Generate Topic" to start practicing.</p>
         </div>
       )}
-
-      <HistoryList history={history} type={TaskType.TASK_2} onSelect={setViewingHistory} />
-      
-      {viewingHistory && <HistoryModal entry={viewingHistory} onClose={() => setViewingHistory(null)} />}
     </div>
   );
 };

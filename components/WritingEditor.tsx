@@ -59,16 +59,16 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
       {/* Input Container */}
       <div className="flex flex-col h-full">
         <div className="flex justify-between items-center mb-2 px-1">
-          <label className="text-sm font-semibold text-gray-700">Your Answer</label>
+          <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Your Answer</label>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500 font-medium">
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
               {value.split(/\s+/).filter(w => w.length > 0).length} words
             </span>
             {!readOnly && (
               <button
                 onClick={performCheck}
                 disabled={isChecking || value.trim().length === 0}
-                className="flex items-center gap-1 text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full border border-indigo-100 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                className="flex items-center gap-1 text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 {isChecking ? (
                   <>
@@ -91,8 +91,8 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
           </div>
         </div>
         <textarea
-          className={`w-full h-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none font-sans text-base leading-relaxed shadow-sm ${
-            readOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+          className={`w-full h-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none font-sans text-base leading-relaxed shadow-sm ${
+            readOnly ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
           }`}
           placeholder={placeholder}
           value={value}
@@ -104,23 +104,23 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
       {/* Correction Container */}
       <div className="flex flex-col h-full">
         <div className="flex justify-between items-center mb-2 px-1">
-          <label className="text-sm font-semibold text-gray-700">Correction Result</label>
+          <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Correction Result</label>
         </div>
-        <div className="w-full h-full p-4 border border-gray-200 bg-gray-50 rounded-lg overflow-y-auto font-sans text-base leading-relaxed shadow-inner">
+        <div className="w-full h-full p-4 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-y-auto font-sans text-base leading-relaxed shadow-inner">
           <GrammarDisplay 
             segments={displaySegments} 
             placeholder={
               readOnly ? (
-                 <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm italic">
+                 <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm italic">
                   <p>No grammar correction available.</p>
                 </div>
               ) : value.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm italic">
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm italic">
                   <p>Write your answer on the left</p>
                   <p>and click "Check Grammar" to see feedback.</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm italic opacity-60">
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm italic opacity-60">
                   <p>Click "Check Grammar" to analyze your text.</p>
                 </div>
               )

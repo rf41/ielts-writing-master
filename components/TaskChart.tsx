@@ -13,19 +13,19 @@ const TaskChart: React.FC<TaskChartProps> = ({ data }) => {
     const keys = [data.xAxisKey, ...data.dataKeys];
     return (
       <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                       {keys.map(k => (
-                          <th key={k} className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">{k}</th>
+                          <th key={k} className="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{k}</th>
                       ))}
                   </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {data.data.map((row, i) => (
                       <tr key={i}>
                            {keys.map(k => (
-                              <td key={k} className="px-4 py-2 whitespace-nowrap text-gray-700">{row[k]}</td>
+                              <td key={k} className="px-4 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">{row[k]}</td>
                            ))}
                       </tr>
                   ))}

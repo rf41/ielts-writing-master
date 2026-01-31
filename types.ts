@@ -45,13 +45,21 @@ export interface CorrectionResponse {
 }
 
 export interface HistoryEntry {
-  id: string;
-  timestamp: Date;
-  taskType: TaskType;
-  title: string;
-  question: string;
+  taskType: string;
+  prompt: string;
   userText: string;
-  feedback: FeedbackResult;
+  feedback: FeedbackResult | null;
+  timestamp: string;
   task1Data?: Task1Data;
   grammarSegments?: GrammarSegment[];
+}
+
+export interface Question {
+  id?: string;
+  taskType: string;
+  prompt: string;
+  task1Data?: Task1Data;
+  task2Data?: Task2Data;
+  createdAt: string;
+  usageCount: number;
 }
