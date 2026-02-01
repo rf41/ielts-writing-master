@@ -8,6 +8,7 @@ interface QuestionExporterProps {
 
 const QuestionExporter: React.FC<QuestionExporterProps> = ({ onClose }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [filter, setFilter] = useState<'all' | 'Task 1' | 'Task 2'>('all');
   const [loading, setLoading] = useState(false);
 
@@ -18,9 +19,12 @@ const QuestionExporter: React.FC<QuestionExporterProps> = ({ onClose }) => {
   const loadQuestions = async () => {
     setLoading(true);
     try {
+      const allData = await getAllQuestions();
+      setAllQuestions(allData);
+      
       const data = filter === 'all' 
-        ? await getAllQuestions()
-        : await getQuestionsByTaskType(filter);
+        ? allData
+        : allData.filter(q => q.taskType === filter);
       setQuestions(data);
     } catch (error) {
       console.error('Error loading questions:', error);
@@ -39,8 +43,8 @@ const QuestionExporter: React.FC<QuestionExporterProps> = ({ onClose }) => {
     }
   };
 
-  const task1Questions = questions.filter(q => q.taskType === 'Task 1');
-  const task2Questions = questions.filter(q => q.taskType === 'Task 2');
+  const task1Questions = allQuestions.filter(q => q.taskType === 'Task 1');
+  const task2Questions = allQuestions.filter(q => q.taskType === 'Task 2');
 
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -92,7 +96,7 @@ const QuestionExporter: React.FC<QuestionExporterProps> = ({ onClose }) => {
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  All ({questions.length})
+                  All ({allQuestions.length})
                 </button>
                 <button
                   onClick={() => setFilter('Task 1')}
@@ -119,7 +123,7 @@ const QuestionExporter: React.FC<QuestionExporterProps> = ({ onClose }) => {
               {/* Statistics */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{questions.length}</div>
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{allQuestions.length}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">Total Questions</div>
                 </div>
                 <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-100 dark:border-green-800">

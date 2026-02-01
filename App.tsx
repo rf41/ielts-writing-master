@@ -147,21 +147,21 @@ function AppContent() {
     <div className="h-full flex flex-col bg-slate-50 dark:bg-gray-900 font-sans transition-colors">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="bg-primary text-white p-1.5 rounded-lg">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-full px-3 sm:px-4 lg:px-6">
+          <div className="flex justify-between items-center h-12">
+            <div className="flex items-center gap-1.5">
+              <div className="bg-primary text-white p-1 rounded-md">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">IELTS Writing Master</h1>
+              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">IELTS Writing Master</h1>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {/* API Key Settings Button */}
               <button
                 onClick={() => setShowApiSettings(true)}
-                className={`relative p-2 rounded-lg transition-colors ${
+                className={`relative p-1.5 rounded-lg transition-colors ${
                   hasCustomApiKey 
                     ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' 
                     : 'hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -169,7 +169,7 @@ function AppContent() {
                 title={hasCustomApiKey ? 'Using Custom API Key' : 'API Key Settings'}
               >
                 <svg 
-                  className={`w-5 h-5 transition-colors ${
+                  className={`w-4 h-4 transition-colors ${
                     hasCustomApiKey 
                       ? 'text-green-600 dark:text-green-400' 
                       : 'text-gray-600 dark:text-gray-300'
@@ -183,8 +183,8 @@ function AppContent() {
                 {/* Green dot indicator */}
                 {hasCustomApiKey && (
                   <>
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                    <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                    <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></span>
                   </>
                 )}
               </button>
@@ -192,11 +192,11 @@ function AppContent() {
               {/* Buy Us a Coffee Button */}
               <button
                 onClick={() => setShowDonation(true)}
-                className="p-2 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors group"
+                className="p-1.5 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors group"
                 title="Buy Us a Coffee"
               >
                 <svg 
-                  className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors" 
+                  className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors" 
                   fill="none" 
                   viewBox="0 0 24 24" 
                   stroke="currentColor"
@@ -210,44 +210,45 @@ function AppContent() {
               {/* Export Questions Button */}
               <button
                 onClick={() => setShowExporter(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300"
                 title="Export Question Bank"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
+                <span className="hidden sm:inline">Export</span>
               </button>
               
               {/* Dark Mode Toggle */}
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {isDark ? (
-                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                   </svg>
                 )}
               </button>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setShowProfile(true)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                 >
-                  <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-semibold">
+                  <div className="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-semibold">
                     {currentUser.displayName?.[0]?.toUpperCase() || 'U'}
                   </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{currentUser.displayName || 'User'}</span>
+                  <span className="hidden sm:inline text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{currentUser.displayName || 'User'}</span>
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                  className="px-2 py-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
                 >
                   Logout
                 </button>
@@ -257,12 +258,12 @@ function AppContent() {
         </div>
         
         {/* Tab Navigation */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+        <div className="w-full px-3 sm:px-4 lg:px-6">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab(TaskType.TASK_1)}
                 className={`
-                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors
                   ${activeTab === TaskType.TASK_1
                     ? 'border-primary text-primary dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}
@@ -273,7 +274,7 @@ function AppContent() {
               <button
                 onClick={() => setActiveTab(TaskType.TASK_2)}
                 className={`
-                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors
                   ${activeTab === TaskType.TASK_2
                     ? 'border-primary text-primary dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}
@@ -308,9 +309,13 @@ function AppContent() {
       </div>
       
       {/* Disclaimer */}
-      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4">
+      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4 relative">
           <div className="max-w-7xl mx-auto px-4 text-center text-xs text-gray-400 dark:text-gray-500">
               Dev <a href="https://ridwancard.my.id" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">ridwancard.my.id</a>. Scores are estimates only and not official IELTS results.
+          </div>
+          {/* Online User Counter - Integrated in Footer */}
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            <OnlineUserCounter />
           </div>
       </footer>
 
@@ -330,9 +335,6 @@ function AppContent() {
       
       {/* Donation Modal */}
       {showDonation && <DonationModal onClose={() => setShowDonation(false)} />}
-      
-      {/* Online User Counter */}
-      <OnlineUserCounter />
     </div>
   );
 }
