@@ -1,6 +1,54 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ChartType, Task1Data, Task2Data, CorrectionResponse, FeedbackResult, TaskType } from "../types";
 
+// ============================================================================
+// MODULAR PROMPT TEMPLATES - Token Optimized
+// ============================================================================
+
+// Base system context (reusable across all prompts)
+const CONTEXT = {
+  IELTS: "IELTS",
+  JSON_OUTPUT: "JSON:",
+} as const;
+
+// JSON output format templates
+const JSON_FORMATS = {
+  TASK1: (type: string) => `{"title":"","prompt":"","type":"${type}","xAxisKey":"","dataKeys":[],"data":[]}`,
+  TASK2: '{"topic":"","prompt":""}',
+  GRAMMAR: '{"text":"","type":"ok|correction","correction":"","explanation":""}',
+  EVALUATION: '{"bandScore":0-9,"feedback":"","strengths":[],"improvements":[]}',
+} as const;
+
+// Evaluation criteria (shared between functions)
+const EVAL_CRITERIA = "Task achievement, coherence, vocabulary, grammar variety" as const;
+
+// Word count requirements
+const MIN_WORDS = {
+  TASK_1: 150,
+  TASK_2: 250,
+} as const;
+
+// Prompt builders - compose prompts dynamically
+const buildPrompt = {
+  task1: (chartType: ChartType) => 
+    `Generate ${CONTEXT.IELTS} Task 1 ${chartType}. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK1(chartType)}. 5-7 points.`,
+  
+  task2: () => 
+    `Generate ${CONTEXT.IELTS} Task 2 topic. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK2}`,
+  
+  grammar: (text: string) => 
+    `Check errors. Segments: ${JSON_FORMATS.GRAMMAR}.\nText: "${text}"`,
+  
+  evaluation: (taskType: TaskType, question: string, text: string, wordCount: number) => {
+    const minWords = taskType === TaskType.TASK_1 ? MIN_WORDS.TASK_1 : MIN_WORDS.TASK_2;
+    return `${CONTEXT.IELTS} examiner: Evaluate ${taskType}.\nQ: "${question}"\nWords: ${wordCount} (min ${minWords})\nAnswer: "${text}"\n\nFocus: ${EVAL_CRITERIA}. Omit spelling.\n${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.EVALUATION}`;
+  }
+} as const;
+
+// ============================================================================
+// CLIENT & ERROR HANDLING
+// ============================================================================
+
 // Helper to get client safely - checks for custom API key first
 const getClient = () => {
   // Check for custom API key in localStorage first
@@ -66,17 +114,7 @@ const handleApiError = (error: any): never => {
 export const generateTask1Prompt = async (chartType: ChartType): Promise<Task1Data> => {
   try {
     const ai = getClient();
-    
-    const prompt = `Generate a realistic IELTS Writing Task 1 dataset and prompt for a ${chartType}. 
-    The data should be suitable for a chart. 
-    Return a JSON object with:
-    - 'title': The title of the chart.
-    - 'prompt': The specific IELTS instruction (e.g. "Summarise the information...").
-    - 'type': The string value "${chartType}".
-    - 'xAxisKey': The key used for the x-axis or category (e.g., 'year', 'country').
-    - 'dataKeys': An array of strings representing the data series keys (e.g., ['Sales', 'Profit'] or ['Men', 'Women']).
-    - 'data': An array of objects where each object represents a data point (e.g., { "year": "1990", "Men": 50, "Women": 40 }). Limit to 5-8 data points.
-    `;
+    const prompt = buildPrompt.task1(chartType);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -98,8 +136,7 @@ export const generateTask1Prompt = async (chartType: ChartType): Promise<Task1Da
 export const generateTask2Prompt = async (): Promise<Task2Data> => {
   try {
     const ai = getClient();
-    const prompt = `Generate a random IELTS Writing Task 2 essay topic. 
-    Return JSON with 'topic' (short title) and 'prompt' (the full essay question).`;
+    const prompt = buildPrompt.task2();
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -127,23 +164,7 @@ export const generateTask2Prompt = async (): Promise<Task2Data> => {
 export const checkGrammar = async (text: string): Promise<CorrectionResponse> => {
   try {
     const ai = getClient();
-    
-    const prompt = `Analyze the following English text for grammar, spelling, and vocabulary errors suitable for IELTS.
-    Return a JSON object containing a 'segments' array. 
-    Break the text into segments. If a segment is correct, set type to 'ok'. 
-    If a segment has an error, set type to 'correction', provide the 'correction' (the correct word/phrase), and a brief 'explanation'.
-    The segments when concatenated MUST reconstruction the meaning of the original text, but the 'text' field of the 'correction' segment should be the ORIGINAL error.
-    
-    Example input: "I has cat."
-    Example output segments: 
-    [
-      { "text": "I ", "type": "ok" }, 
-      { "text": "has", "type": "correction", "correction": "have", "explanation": "Subject-verb agreement" }, 
-      { "text": " cat.", "type": "ok" }
-    ]
-
-    Text to analyze: "${text}"
-    `;
+    const prompt = buildPrompt.grammar(text);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -183,28 +204,7 @@ export const checkGrammar = async (text: string): Promise<CorrectionResponse> =>
 export const evaluateWriting = async (taskType: TaskType, question: string, text: string, wordCount: number): Promise<FeedbackResult> => {
   try {
     const ai = getClient();
-    const prompt = `Act as an expert IELTS examiner. Evaluate the following ${taskType} response based on the official descriptors.
-    
-    Question: "${question}"
-    User Response Word Count: ${wordCount} words (Use this exact count for checking length requirements).
-    User Response: "${text}"
-
-    Important Instructions:
-    1. **Word Count**: Relies strictly on the provided word count (${wordCount}) to judge if the response is underlength (Task 1 < 150, Task 2 < 250).
-    2. **Consistency**: The user has a separate tool for checking specific spelling and minor grammar errors. DO NOT list specific spelling corrections in "improvements".
-    3. **Focus**: In the 'strengths' and 'improvements' sections, focus on:
-       - **Task Achievement/Response**: Did they answer the prompt fully? Is the position clear?
-       - **Coherence & Cohesion**: Paragraphing, linking words, flow.
-       - **Lexical Resource**: Range of vocabulary, collocation usage (not just spelling).
-       - **Grammatical Range**: Variety of sentence structures (simple vs complex), passive voice, etc.
-    4. If the grammar is accurate but simple, suggest "using more complex structures" rather than saying "fix grammar".
-
-    Return JSON:
-    - bandScore: number (0-9, increments of 0.5)
-    - feedback: string (general summary)
-    - strengths: array of strings (bullet points)
-    - improvements: array of strings (bullet points)
-    `;
+    const prompt = buildPrompt.evaluation(taskType, question, text, wordCount);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

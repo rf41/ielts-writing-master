@@ -1,6 +1,14 @@
 import React from 'react';
 import { FeedbackResult } from '../types';
 
+// Helper to parse markdown **text** to bold
+const parseMarkdown = (text: string) => {
+  const parts = text.split(/\*\*(.*?)\*\*/g);
+  return parts.map((part, i) => 
+    i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+  );
+};
+
 interface ScoreFeedbackProps {
   result: FeedbackResult | null;
   isLoading?: boolean;
@@ -59,7 +67,7 @@ const ScoreFeedback: React.FC<ScoreFeedbackProps> = ({ result, isLoading = false
                   </svg>
                   General Feedback
                 </h4>
-                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{result.feedback}</p>
+                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{parseMarkdown(result.feedback)}</p>
               </div>
               
               <div>
@@ -70,7 +78,7 @@ const ScoreFeedback: React.FC<ScoreFeedbackProps> = ({ result, isLoading = false
                   Strengths
                 </h4>
                 <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 space-y-1 ml-1">
-                  {result.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                  {result.strengths.map((s, i) => <li key={i}>{parseMarkdown(s)}</li>)}
                 </ul>
               </div>
             </div>
@@ -83,7 +91,7 @@ const ScoreFeedback: React.FC<ScoreFeedbackProps> = ({ result, isLoading = false
                 Areas for Improvement
               </h4>
               <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 space-y-1 ml-1 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-100 dark:border-amber-800">
-                {result.improvements.map((s, i) => <li key={i}>{s}</li>)}
+                {result.improvements.map((s, i) => <li key={i}>{parseMarkdown(s)}</li>)}
               </ul>
             </div>
           </div>

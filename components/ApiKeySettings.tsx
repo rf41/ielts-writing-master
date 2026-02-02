@@ -103,6 +103,37 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onClose }) => {
                 </div>
               </div>
 
+              {/* Daily Usage Estimation */}
+              <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <h4 className="font-semibold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Free Tier Daily Limit (20 Requests/Day)
+                </h4>
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                  <p className="font-medium">Estimated usage per session:</p>
+                  <ul className="ml-5 space-y-1 text-xs">
+                    <li>• Generate Question: <strong>1 request</strong></li>
+                    <li>• Check Grammar: <strong>1 request</strong> (limited to 1x per task)</li>
+                    <li>• Evaluate Writing: <strong>1 request</strong></li>
+                  </ul>
+                  <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-700">
+                    <p className="font-semibold text-amber-900 dark:text-amber-200">With 20 requests/day, you can practice:</p>
+                    <div className="mt-2 space-y-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        <span><strong>~6-7 complete tasks</strong> (generate + grammar check + evaluate)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span><strong>~10 tasks</strong> (generate + evaluate only, skip grammar check)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* API Key Input */}
               <div className="space-y-4">
                 <div>

@@ -22,6 +22,7 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
 }) => {
   const [internalSegments, setInternalSegments] = useState<GrammarSegment[]>([]);
   const [isChecking, setIsChecking] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
   
   // Use external segments if provided, otherwise internal state
   const displaySegments = externalSegments || internalSegments;
@@ -31,6 +32,7 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
     if (!readOnly && value.trim().length === 0) {
       setInternalSegments([]);
       onSegmentsChange?.([]);
+      setHasChecked(false);
     }
   }, [value, onSegmentsChange, readOnly]);
 
@@ -46,6 +48,7 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
       if (result && result.segments) {
         setInternalSegments(result.segments);
         onSegmentsChange?.(result.segments);
+        setHasChecked(true);
       }
     } catch (error) {
       console.error("Grammar check failed", error);
@@ -67,8 +70,9 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
             {!readOnly && (
               <button
                 onClick={performCheck}
-                disabled={isChecking || value.trim().length === 0}
+                disabled={isChecking || value.trim().length === 0 || hasChecked}
                 className="flex items-center gap-1 text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                title={hasChecked ? "Grammar already checked (limit: 1x per session)" : "Check grammar for errors"}
               >
                 {isChecking ? (
                   <>
@@ -77,6 +81,13 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Checking...
+                  </>
+                ) : hasChecked ? (
+                  <>
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Checked
                   </>
                 ) : (
                   <>
@@ -106,7 +117,7 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
         <div className="flex justify-between items-center mb-2 px-1">
           <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Correction Result</label>
         </div>
-        <div className="w-full h-full p-4 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-y-auto font-sans text-base leading-relaxed shadow-inner">
+        <div className="w-full h-full p-4 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-y-auto font-sans text-base leading-relaxed shadow-inner relative z-10">
           <GrammarDisplay 
             segments={displaySegments} 
             placeholder={
