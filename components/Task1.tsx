@@ -75,9 +75,13 @@ const Task1: React.FC<Task1Props> = ({ history, onAddToHistory }) => {
         prompt: data.prompt,
         task1Data: data
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Failed to generate task. Please try again.");
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
+      notification.textContent = '✗ ' + (e?.message || "Failed to generate task. Please try again.");
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 5000);
     } finally {
       setLoading(false);
     }
@@ -91,30 +95,39 @@ const Task1: React.FC<Task1Props> = ({ history, onAddToHistory }) => {
       const wordCount = userText.trim().split(/\s+/).filter(w => w.length > 0).length;
       const res = await evaluateWriting(TaskType.TASK_1, taskData.prompt, userText, wordCount);
       setFeedback(res);
-      setCanSave(true);
-    } catch (e) {
+      
+      // Auto-save to history after evaluation
+      onAddToHistory({
+        taskType: 'Task 1',
+        prompt: taskData.prompt,
+        userText: userText,
+        feedback: res,
+        timestamp: new Date().toISOString(),
+        task1Data: taskData,
+        grammarSegments: currentSegments
+      });
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
+      notification.textContent = '✓ History saved automatically!';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+      
+      setCanSave(false);
+    } catch (e: any) {
       console.error(e);
-      alert("Evaluation failed.");
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
+      notification.textContent = '✗ ' + (e?.message || "Evaluation failed. Please try again.");
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 5000);
     } finally {
       setEvaluating(false);
     }
   };
 
-  const handleSave = () => {
-    if (taskData && feedback && userText) {
-      onAddToHistory({
-        taskType: 'Task 1',
-        prompt: taskData.prompt,
-        userText: userText,
-        feedback: feedback,
-        timestamp: new Date().toISOString(),
-        task1Data: taskData,
-        grammarSegments: currentSegments
-      });
-      alert('Session saved to history!');
-      setCanSave(false);
-    }
-  };
+
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-20">
@@ -131,23 +144,15 @@ const Task1: React.FC<Task1Props> = ({ history, onAddToHistory }) => {
             </select>
         </div>
         <div className="flex gap-2 items-center">
-          {taskData && (
+          {!taskData && (
             <button 
-                onClick={handleSave} 
-                disabled={!canSave}
-                className="w-full sm:w-auto px-6 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
-                title={canSave ? 'Save to history' : 'Complete evaluation first'}
-              >
-                Save
-              </button>
-            )}
-          <button 
-            onClick={handleGenerate} 
-            disabled={loading}
-            className="w-full sm:w-auto px-6 py-2 bg-secondary dark:bg-gray-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-600 transition disabled:opacity-50 font-medium shadow-sm"
-          >
-            {loading ? 'Generating...' : taskData ? 'Generate New' : 'Generate New Question'}
-          </button>
+              onClick={handleGenerate} 
+              disabled={loading}
+              className="w-full sm:w-auto px-6 py-2 bg-secondary dark:bg-gray-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-600 transition disabled:opacity-50 font-medium shadow-sm"
+            >
+              {loading ? 'Generating...' : 'Generate New Question'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -229,8 +234,8 @@ const Task1: React.FC<Task1Props> = ({ history, onAddToHistory }) => {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 animate-fade-in-down" style={{ fontSize: `${zoomLevel}%` }}>
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">{taskData.title}</h2>
-            <p className="text-gray-600 mb-4">{taskData.prompt}</p>
-            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-gray-700 dark:text-gray-200 mb-4">{taskData.prompt}</p>
+            <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                 <TaskChart data={taskData} />
             </div>
           </div>

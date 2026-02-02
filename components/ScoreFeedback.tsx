@@ -43,7 +43,7 @@ const ScoreFeedback: React.FC<ScoreFeedbackProps> = ({ result, isLoading = false
           <div className="bg-primary/5 dark:bg-primary/10 p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row justify-between items-center gap-4">
             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Assessment Result</h3>
             <div className="flex items-center gap-2 bg-white dark:bg-gray-700 px-4 py-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
-              <span className="text-gray-600 font-medium uppercase text-sm tracking-wider">Estimated Band Score</span>
+              <span className="text-gray-600 dark:text-gray-200 font-medium uppercase text-sm tracking-wider">Estimated Band Score</span>
               <span className={`text-3xl font-extrabold ${result.bandScore >= 7 ? 'text-green-600' : result.bandScore >= 6 ? 'text-yellow-600' : 'text-red-500'}`}>
                 {result.bandScore}
               </span>
@@ -88,13 +88,13 @@ const ScoreFeedback: React.FC<ScoreFeedbackProps> = ({ result, isLoading = false
             </div>
           </div>
           
-          {!readOnly && onEvaluate && (
+          {/* {!readOnly && onEvaluate && (
             <div className="bg-gray-50 dark:bg-gray-900/30 p-4 border-t border-gray-100 dark:border-gray-700 text-center">
                <button onClick={onEvaluate} className="text-primary dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium hover:underline">
                  Regenerate Evaluation
                </button>
             </div>
-          )}
+          )} */}
         </div>
       )}
     </div>

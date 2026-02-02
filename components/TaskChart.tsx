@@ -41,9 +41,9 @@ const TaskChart: React.FC<TaskChartProps> = ({ data }) => {
       <ResponsiveContainer width="100%" height={300} key={`chart-${data.type}`}>
         {data.type === ChartType.BAR ? (
           <BarChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={data.xAxisKey} />
-            <YAxis />
+            <CartesianGrid strokeDasharray="3 3" className="dark:stroke-gray-600" />
+            <XAxis dataKey={data.xAxisKey} stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
+            <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
             <Tooltip />
             <Legend />
             {data.dataKeys.map((key, index) => (
@@ -54,9 +54,9 @@ const TaskChart: React.FC<TaskChartProps> = ({ data }) => {
           </BarChart>
         ) : data.type === ChartType.LINE ? (
           <LineChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={data.xAxisKey} />
-            <YAxis />
+            <CartesianGrid strokeDasharray="3 3" className="dark:stroke-gray-600" />
+            <XAxis dataKey={data.xAxisKey} stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
+            <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
             <Tooltip />
             <Legend />
             {data.dataKeys.map((key, index) => (

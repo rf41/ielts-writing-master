@@ -73,9 +73,13 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
         prompt: data.prompt,
         task2Data: data
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Failed to generate task. Please try again.");
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
+      notification.textContent = '✗ ' + (e?.message || "Failed to generate task. Please try again.");
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 5000);
     } finally {
       setLoading(false);
     }
@@ -89,29 +93,38 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
       const wordCount = userText.trim().split(/\s+/).filter(w => w.length > 0).length;
       const res = await evaluateWriting(TaskType.TASK_2, taskData.prompt, userText, wordCount);
       setFeedback(res);
-      setCanSave(true);
-    } catch (e) {
+      
+      // Auto-save to history after evaluation
+      onAddToHistory({
+        taskType: 'Task 2',
+        prompt: taskData.prompt,
+        userText: userText,
+        feedback: res,
+        timestamp: new Date().toISOString(),
+        grammarSegments: currentSegments
+      });
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
+      notification.textContent = '✓ History saved automatically!';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+      
+      setCanSave(false);
+    } catch (e: any) {
       console.error(e);
-      alert("Evaluation failed.");
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
+      notification.textContent = '✗ ' + (e?.message || "Evaluation failed. Please try again.");
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 5000);
     } finally {
       setEvaluating(false);
     }
   };
 
-  const handleSave = () => {
-    if (taskData && feedback && userText) {
-      onAddToHistory({
-        taskType: 'Task 2',
-        prompt: taskData.prompt,
-        userText: userText,
-        feedback: feedback,
-        timestamp: new Date().toISOString(),
-        grammarSegments: currentSegments
-      });
-      alert('Session saved to history!');
-      setCanSave(false);
-    }
-  };
+
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-20">
@@ -119,23 +132,15 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
       <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
         <div className="text-gray-700 dark:text-gray-300 font-medium">IELTS Writing Task 2 (Essay)</div>
         <div className="flex gap-2 items-center">
-          {taskData && (
+          {!taskData && (
             <button 
-                onClick={handleSave} 
-                disabled={!canSave}
-                className="px-6 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
-                title={canSave ? 'Save to history' : 'Complete evaluation first'}
-              >
-                Save
-              </button>
-            )}
-          <button 
-            onClick={handleGenerate} 
-            disabled={loading}
-            className="px-6 py-2 bg-secondary dark:bg-gray-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-600 transition disabled:opacity-50 font-medium shadow-sm"
-          >
-            {loading ? 'Generating...' : taskData ? 'Generate New' : 'Generate Topic'}
-          </button>
+              onClick={handleGenerate} 
+              disabled={loading}
+              className="px-6 py-2 bg-secondary dark:bg-gray-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-600 transition disabled:opacity-50 font-medium shadow-sm"
+            >
+              {loading ? 'Generating...' : 'Generate Topic'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -216,8 +221,8 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
           </div>
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 animate-fade-in-down" style={{ fontSize: `${zoomLevel}%` }}>
           <div className="mb-6 p-6 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
-            <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wide mb-1">{taskData.topic}</h3>
-            <p className="text-lg font-semibold text-gray-900 leading-snug">{taskData.prompt}</p>
+            <h3 className="text-sm font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wide mb-1">{taskData.topic}</h3>
+            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug">{taskData.prompt}</p>
           </div>
 
           <WritingEditor 
