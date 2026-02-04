@@ -4,17 +4,72 @@ import { ChartType, Task1Data } from '../types';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
+// Format number with thousand separator
+const formatNumber = (value: any) => {
+  if (typeof value === 'number') {
+    return value.toLocaleString('en-US');
+  }
+  // Try to parse string as number
+  const num = parseFloat(value);
+  if (!isNaN(num)) {
+    return num.toLocaleString('en-US');
+  }
+  return value;
+};
+
 interface TaskChartProps {
   data: Task1Data;
+  zoomLevel?: number;
 }
 
-const TaskChart: React.FC<TaskChartProps> = ({ data }) => {
+// Custom tick component for word wrapping
+const CustomTick = ({ x, y, payload }: any) => {
+  // Convert to string and handle non-string values
+  const value = String(payload.value || '');
+  const words = value.split(' ');
+  const maxCharsPerLine = 12;
+  const lines: string[] = [];
+  let currentLine = '';
+
+  words.forEach((word: string) => {
+    if ((currentLine + word).length > maxCharsPerLine) {
+      if (currentLine) lines.push(currentLine.trim());
+      currentLine = word + ' ';
+    } else {
+      currentLine += word + ' ';
+    }
+  });
+  if (currentLine) lines.push(currentLine.trim());
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {lines.map((line, index) => (
+        <text
+          key={index}
+          x={0}
+          y={0}
+          dy={index * 12 + 8}
+          textAnchor="middle"
+          fill="#666"
+          fontSize={11}
+        >
+          {line}
+        </text>
+      ))}
+    </g>
+  );
+};
+
+const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
   // Memoize chart to prevent unnecessary re-renders
   const chartContent = useMemo(() => {
+    const chartHeight = 300 * (zoomLevel / 100);
+    const pieRadius = 80 * (zoomLevel / 100);
+
     if (data.type === ChartType.TABLE) {
       const keys = [data.xAxisKey, ...data.dataKeys];
       return (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" style={{ fontSize: `${zoomLevel}%` }}>
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -27,7 +82,7 @@ const TaskChart: React.FC<TaskChartProps> = ({ data }) => {
                     {data.data.map((row, i) => (
                         <tr key={i}>
                              {keys.map(k => (
-                                <td key={k} className="px-4 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">{row[k]}</td>
+                                <td key={k} className="px-4 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">{formatNumber(row[k])}</td>
                              ))}
                         </tr>
                     ))}
@@ -38,30 +93,59 @@ const TaskChart: React.FC<TaskChartProps> = ({ data }) => {
     }
 
     return (
-      <ResponsiveContainer width="100%" height={300} key={`chart-${data.type}`}>
+      <ResponsiveContainer width="100%" height={chartHeight} key={`chart-${data.type}`}>
         {data.type === ChartType.BAR ? (
-          <BarChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <BarChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" className="dark:stroke-gray-600" />
-            <XAxis dataKey={data.xAxisKey} stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
-            <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
-            <Tooltip />
+            <XAxis 
+              dataKey={data.xAxisKey} 
+              stroke="#666" 
+              className="dark:stroke-gray-300" 
+              tick={<CustomTick />}
+              height={50}
+              interval={0}
+            />
+            <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} tickFormatter={formatNumber} />
+            <Tooltip formatter={formatNumber} />
             <Legend />
             {data.dataKeys.map((key, index) => (
               <Bar key={key} dataKey={key} fill={COLORS[index % COLORS.length]}>
-                <LabelList dataKey={key} position="top" style={{ fill: '#666', fontSize: '12px' }} />
+                <LabelList dataKey={key} position="top" content={(props: any) => {
+                  const { x, y, value } = props;
+                  return (
+                    <text x={x} y={y} dy={-10} fill="#666" fontSize={12} textAnchor="middle">
+                      {formatNumber(value)}
+                    </text>
+                  );
+                }} />
               </Bar>
             ))}
           </BarChart>
         ) : data.type === ChartType.LINE ? (
-          <LineChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <LineChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" className="dark:stroke-gray-600" />
-            <XAxis dataKey={data.xAxisKey} stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
-            <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} />
-            <Tooltip />
+            <XAxis 
+              dataKey={data.xAxisKey} 
+              stroke="#666" 
+              className="dark:stroke-gray-300" 
+              tick={<CustomTick />}
+              height={50}
+              interval={0}
+            />
+            <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} tickFormatter={formatNumber} />
+            <Tooltip formatter={formatNumber} />
             <Legend />
             {data.dataKeys.map((key, index) => (
-              <Line type="monotone" key={key} dataKey={key} stroke={COLORS[index % COLORS.length]}>
-                 <LabelList dataKey={key} position="top" style={{ fill: COLORS[index % COLORS.length], fontSize: '12px' }} />
+              <Line type="monotone" key={key} dataKey={key} stroke={COLORS[index % COLORS.length]} strokeWidth={2}>
+                 <LabelList dataKey={key} position="top" content={(props: any) => {
+                  const { x, y, value } = props;
+                  if (value === undefined || value === null) return null;
+                  return (
+                    <text x={x} y={y} dy={-10} fill={COLORS[index % COLORS.length]} fontSize={11} textAnchor="middle" fontWeight="bold">
+                      {formatNumber(value)}
+                    </text>
+                  );
+                }} />
               </Line>
             ))}
           </LineChart>
@@ -73,23 +157,23 @@ const TaskChart: React.FC<TaskChartProps> = ({ data }) => {
               nameKey={data.xAxisKey}
               cx="50%"
               cy="50%"
-              outerRadius={80}
+              outerRadius={pieRadius}
               label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, value }) => {
                  // Custom label to show Name: Value
-                 return `${data.data[index][data.xAxisKey]}: ${value}`;
+                 return `${data.data[index][data.xAxisKey]}: ${formatNumber(value)}`;
               }}
             >
               {data.data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip />
+            <Tooltip formatter={formatNumber} />
             <Legend />
           </PieChart>
         )}
       </ResponsiveContainer>
     );
-  }, [data]);
+  }, [data, zoomLevel]);
 
   return chartContent;
 };

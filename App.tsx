@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Task1 from './components/Task1';
 import Task2 from './components/Task2';
 import Login from './components/Login';
@@ -9,11 +10,14 @@ import QuestionExporter from './components/QuestionExporter';
 import OnlineUserCounter from './components/OnlineUserCounter';
 import ApiKeySettings from './components/ApiKeySettings';
 import DonationModal from './components/DonationModal';
+import QuotaIndicator from './components/QuotaIndicator';
+import GuidelineModal from './components/GuidelineModal';
 import { TaskType, HistoryEntry } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DarkModeProvider, useDarkMode } from './contexts/DarkModeContext';
 import { getUserHistory, saveHistory, deleteHistory } from './services/historyService';
 import { startHeartbeat, stopHeartbeat, cleanupStaleUsers } from './services/onlineUserService';
+import { initializeQuota, clearQuotaCache } from './services/quotaService';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TaskType>(TaskType.TASK_1);
@@ -23,6 +27,7 @@ function AppContent() {
   const [showExporter, setShowExporter] = useState(false);
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [showDonation, setShowDonation] = useState(false);
+  const [showGuideline, setShowGuideline] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [hasCustomApiKey, setHasCustomApiKey] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
@@ -47,8 +52,12 @@ function AppContent() {
   useEffect(() => {
     if (currentUser) {
       loadUserHistory();
+      // Initialize quota from Firestore
+      initializeQuota(currentUser.uid);
     } else {
       setHistory([]);
+      // Clear quota cache on logout
+      clearQuotaCache();
     }
   }, [currentUser]);
 
@@ -157,7 +166,27 @@ function AppContent() {
               </div>
               <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">IELTS Writing Master</h1>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-3">
+                            
+              {/* Quota Indicator */}
+              <QuotaIndicator />
+
+              {/* Guideline Button */}
+              <button
+                onClick={() => setShowGuideline(true)}
+                className="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
+                title="Usage Guidelines & API Info"
+              >
+                <svg 
+                  className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              
               {/* API Key Settings Button */}
               <button
                 onClick={() => setShowApiSettings(true)}
@@ -216,7 +245,6 @@ function AppContent() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                <span className="hidden sm:inline">Export</span>
               </button>
               
               {/* Dark Mode Toggle */}
@@ -333,6 +361,9 @@ function AppContent() {
         setHasCustomApiKey(!!customKey);
       }} />}
       
+      {/* Guideline Modal */}
+      {showGuideline && <GuidelineModal isOpen={showGuideline} onClose={() => setShowGuideline(false)} />}
+      
       {/* Donation Modal */}
       {showDonation && <DonationModal onClose={() => setShowDonation(false)} />}
     </div>
@@ -344,6 +375,7 @@ function App() {
     <AuthProvider>
       <DarkModeProvider>
         <AppContent />
+        <Analytics />
       </DarkModeProvider>
     </AuthProvider>
   );

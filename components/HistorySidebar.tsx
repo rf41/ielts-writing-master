@@ -36,6 +36,12 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onDeleteHistor
     setShowDeleteModal(index);
   };
 
+  const getScoreColor = (score: number) => {
+    if (score >= 7) return { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', border: 'border-green-300 dark:border-green-700' };
+    if (score >= 5) return { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-300 dark:border-orange-700' };
+    return { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', border: 'border-red-300 dark:border-red-700' };
+  };
+
   const confirmDelete = () => {
     if (showDeleteModal !== null) {
       onDeleteHistory(showDeleteModal);
@@ -113,7 +119,10 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onDeleteHistor
                           }`}>
                             {entry.taskType}
                           </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(entry.timestamp)}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(entry.timestamp)}</span>
                         </div>
                         
                         <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 mb-2">
@@ -121,16 +130,11 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onDeleteHistor
                         </p>
                         
                         {entry.feedback && (
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                              <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                                {entry.feedback.bandScore}
-                              </span>
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Est. Band Score:</span>
+                            <div className={`inline-flex items-center px-2 py-0.5 rounded font-semibold text-xs ${getScoreColor(entry.feedback.bandScore).bg} ${getScoreColor(entry.feedback.bandScore).text}`}>
+                              {entry.feedback.bandScore}
                             </div>
-                            <span className="text-xs text-gray-400 dark:text-gray-500">Band Score</span>
                           </div>
                         )}
                       </div>
@@ -157,7 +161,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onDeleteHistor
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {history.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-primary text-white rounded-full w-4 h-4 flex items-center justify-center" style={{ fontSize: '9px' }}>
                     {history.length > 9 ? '9+' : history.length}
                   </span>
                 )}

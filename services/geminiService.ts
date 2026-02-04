@@ -31,13 +31,15 @@ const MIN_WORDS = {
 // Prompt builders - compose prompts dynamically
 const buildPrompt = {
   task1: (chartType: ChartType) => 
-    `Generate ${CONTEXT.IELTS} Task 1 ${chartType}. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK1(chartType)}. 5-7 points.`,
+    `Generate ${CONTEXT.IELTS} Task 1 ${chartType} with realistic data. Use current/recent topics (2020-2025): environment, tech, economy, demographics, health, education. Data: logical trends, realistic values, clear comparison points. 5-7 data entries. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK1(chartType)}`,
+  
   
   task2: () => 
-    `Generate ${CONTEXT.IELTS} Task 2 topic. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK2}`,
+    `Generate ${CONTEXT.IELTS} Task 2 with engaging contemporary topic. Categories: Technology & Society, Environment & Sustainability, Education & Work, Health & Lifestyle, Culture & Globalization, Government & Economy. Use clear arguable position. Avoid cliché topics. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK2}`,
+  
   
   grammar: (text: string) => 
-    `Check errors. Segments: ${JSON_FORMATS.GRAMMAR}.\nText: "${text}"`,
+    `IELTS Academic Writing Grammar Check - Analyze word-by-word for formal academic context.\n\nIELTS ACADEMIC FOCUS:\n- Formal register (avoid contractions, informal expressions)\n- Academic vocabulary appropriateness\n- Complex sentence structures\n- Cohesive devices usage\n- Subject-verb agreement in formal contexts\n- Articles with academic nouns\n- Passive voice correctness\n- Nominal style where appropriate\n\nFor ERRORS:\n- Isolate specific wrong word/phrase only\n- type: "correction"\n- correction: academically appropriate form\n- explanation: IELTS-focused reason (e.g., "informal - use formal alternative", "weak academic vocabulary", "article needed for countable academic noun")\n\nFor CORRECT text:\n- Group consecutive correct words\n- type: "ok"\n\nPreserve: spaces, punctuation, newlines exactly.\n\nFormat: ${JSON_FORMATS.GRAMMAR}\n\nText: "${text}"`,
   
   evaluation: (taskType: TaskType, question: string, text: string, wordCount: number) => {
     const minWords = taskType === TaskType.TASK_1 ? MIN_WORDS.TASK_1 : MIN_WORDS.TASK_2;
@@ -167,7 +169,7 @@ export const checkGrammar = async (text: string): Promise<CorrectionResponse> =>
     const prompt = buildPrompt.grammar(text);
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -207,7 +209,7 @@ export const evaluateWriting = async (taskType: TaskType, question: string, text
     const prompt = buildPrompt.evaluation(taskType, question, text, wordCount);
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
