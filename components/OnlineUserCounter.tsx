@@ -6,9 +6,7 @@ const OnlineUserCounter: React.FC = () => {
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    console.log('OnlineUserCounter: Setting up subscription');
     const unsubscribe = subscribeToOnlineUsers((count) => {
-      console.log('OnlineUserCounter: Count updated to', count);
       setOnlineCount(count);
       // Trigger animation when count changes
       setIsAnimating(true);
@@ -16,7 +14,6 @@ const OnlineUserCounter: React.FC = () => {
     });
 
     return () => {
-      console.log('OnlineUserCounter: Cleaning up subscription');
       unsubscribe();
     };
   }, []);

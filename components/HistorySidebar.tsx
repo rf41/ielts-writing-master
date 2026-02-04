@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HistoryEntry } from '../types';
 import HistoryModal from './HistoryModal';
 
 interface HistorySidebarProps {
-  history: HistoryEntry[];
+  history: Array<HistoryEntry & { id: string }>;
   onDeleteHistory: (index: number) => void;
   isVisible: boolean;
   onToggleVisibility: () => void;
+  onLoadHistory: () => void;
+  onLoadMore: () => void;
+  isLoading: boolean;
+  isLoaded: boolean;
+  hasMore: boolean;
 }
 
-const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onDeleteHistory, isVisible, onToggleVisibility }) => {
-  const [selectedHistory, setSelectedHistory] = useState<HistoryEntry | null>(null);
+const HistorySidebar: React.FC<HistorySidebarProps> = ({ 
+  history, 
+  onDeleteHistory, 
+  isVisible, 
+  onToggleVisibility,
+  onLoadHistory,
+  onLoadMore,
+  isLoading,
+  isLoaded,
+  hasMore
+}) => {
+  const [selectedHistory, setSelectedHistory] = useState<(HistoryEntry & { id: string }) | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<number | null>(null);
+
+  // Load history when sidebar is expanded for the first time
+  useEffect(() => {
+    if (isVisible && !isLoaded && !isLoading) {
+      onLoadHistory();
+    }
+  }, [isVisible, isLoaded, isLoading, onLoadHistory]);
 
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -93,7 +115,12 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onDeleteHistor
         
         <div className="flex-1 overflow-y-auto">
           {isVisible ? (
-            history.length === 0 ? (
+            isLoading && history.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full px-4 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">Loading history...</p>
+              </div>
+            ) : history.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full px-4 text-center">
                 <svg className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -151,6 +178,41 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onDeleteHistor
                     </div>
                   </div>
                 ))}
+                
+                {/* Load More button */}
+                {hasMore && (
+                  <div className="p-4 flex justify-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLoadMore();
+                      }}
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-primary hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Loading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                          <span>Load More</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+                
+                {/* End of list indicator */}
+                {!hasMore && history.length > 0 && (
+                  <div className="p-4 text-center">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">No more history</p>
+                  </div>
+                )}
               </div>
             )
           ) : (

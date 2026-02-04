@@ -24,7 +24,6 @@ const GuidelineModal: React.FC<GuidelineModalProps> = ({ isOpen, onClose }) => {
           const used = await getQuotaUsed(currentUser.uid);
           setRemaining(maxQuota - used);
         } catch (error) {
-          console.error('Error loading quota:', error);
           setRemaining(maxQuota - getCachedQuota());
         }
       }

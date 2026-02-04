@@ -99,7 +99,6 @@ const Task1: React.FC<Task1Props> = ({ history, onAddToHistory }) => {
         task1Data: data
       });
     } catch (e: any) {
-      console.error(e);
       const notification = document.createElement('div');
       notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
       notification.textContent = '✗ ' + (e?.message || "Failed to generate task. Please try again.");
@@ -139,7 +138,6 @@ const Task1: React.FC<Task1Props> = ({ history, onAddToHistory }) => {
       
       setCanSave(false);
     } catch (e: any) {
-      console.error(e);
       const notification = document.createElement('div');
       notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
       notification.textContent = '✗ ' + (e?.message || "Evaluation failed. Please try again.");

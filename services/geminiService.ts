@@ -60,27 +60,16 @@ const getClient = () => {
   if (!apiKey) {
     throw new Error("API Key not found. Please set your Gemini API key in settings or environment variables.");
   }
-  
-  console.log('Using API key:', customApiKey ? 'Custom (from settings)' : 'Default (from environment)');
   return new GoogleGenAI({ apiKey });
 };
 
 // Helper to handle API errors and return user-friendly messages
 const handleApiError = (error: any): never => {
-  console.error('API Error:', error);
-  console.error('API Error type:', typeof error);
-  console.error('API Error keys:', error ? Object.keys(error) : 'none');
-  
   // Extract error information from various possible structures
   // Google GenAI SDK might throw error with different structures
   const errorCode = error?.error?.code || error?.code || error?.status;
   const errorMessage = error?.error?.message || error?.message || error?.error?.status || '';
   const errorStatus = error?.error?.status || error?.status || '';
-  
-  console.log('Extracted errorCode:', errorCode);
-  console.log('Extracted errorMessage:', errorMessage);
-  console.log('Extracted errorStatus:', errorStatus);
-  
   // Check for RESOURCE_EXHAUSTED status (quota errors)
   if (errorStatus === 'RESOURCE_EXHAUSTED' || errorMessage?.includes('quota') || errorMessage?.includes('RESOURCE_EXHAUSTED')) {
     throw new Error("API quota exceeded. Please wait a few minutes or use your own API key.");
@@ -198,7 +187,6 @@ export const checkGrammar = async (text: string): Promise<CorrectionResponse> =>
     return JSON.parse(response.text) as CorrectionResponse;
   } catch (error) {
     // For grammar check, return empty segments instead of throwing
-    console.error('Grammar check failed:', error);
     return { segments: [] };
   }
 };

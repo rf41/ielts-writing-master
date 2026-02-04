@@ -17,7 +17,6 @@ const QuotaIndicator: React.FC = () => {
         const used = await getQuotaUsed(currentUser.uid);
         setRemaining(getMaxQuota() - used);
       } catch (error) {
-        console.error('Error updating quota:', error);
         // Fallback to cached value
         setRemaining(getMaxQuota() - getCachedQuota());
       }

@@ -1,38 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { QueryDocumentSnapshot } from 'firebase/firestore';
 import Task1 from './components/Task1';
 import Task2 from './components/Task2';
 import Login from './components/Login';
 import Register from './components/Register';
 import UserProfile from './components/UserProfile';
 import HistorySidebar from './components/HistorySidebar';
-import QuestionExporter from './components/QuestionExporter';
 import OnlineUserCounter from './components/OnlineUserCounter';
 import ApiKeySettings from './components/ApiKeySettings';
 import DonationModal from './components/DonationModal';
 import QuotaIndicator from './components/QuotaIndicator';
 import GuidelineModal from './components/GuidelineModal';
+import AdminDashboard from './components/AdminDashboard';
 import { TaskType, HistoryEntry } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DarkModeProvider, useDarkMode } from './contexts/DarkModeContext';
 import { getUserHistory, saveHistory, deleteHistory } from './services/historyService';
 import { startHeartbeat, stopHeartbeat, cleanupStaleUsers } from './services/onlineUserService';
 import { initializeQuota, clearQuotaCache } from './services/quotaService';
+import { invalidateHistoryCache, clearAllCache } from './services/cacheService';
+import { isAdmin } from './services/adminService';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TaskType>(TaskType.TASK_1);
+  const [activeTab, setActiveTab] = useState<TaskType | 'admin'>(TaskType.TASK_1);
   const [history, setHistory] = useState<Array<HistoryEntry & { id: string }>>([]);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [showProfile, setShowProfile] = useState(false);
-  const [showExporter, setShowExporter] = useState(false);
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [showDonation, setShowDonation] = useState(false);
   const [showGuideline, setShowGuideline] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [hasCustomApiKey, setHasCustomApiKey] = useState(false);
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
   const { currentUser, loading, logout } = useAuth();
   const { isDark, toggleDarkMode } = useDarkMode();
+  const userIsAdmin = currentUser ? isAdmin(currentUser.email) : false;
 
   // Check for custom API key on mount
   useEffect(() => {
@@ -48,23 +54,26 @@ function AppContent() {
     return () => window.removeEventListener('storage', checkCustomKey);
   }, []);
 
-  // Load user history when user logs in
+  // Initialize user on login (without loading history)
   useEffect(() => {
     if (currentUser) {
-      loadUserHistory();
       // Initialize quota from Firestore
       initializeQuota(currentUser.uid);
     } else {
       setHistory([]);
+      setHistoryLoaded(false);
+      setLastDoc(null);
+      setHasMoreHistory(false);
       // Clear quota cache on logout
       clearQuotaCache();
+      // Clear browser cache on logout
+      clearAllCache();
     }
   }, [currentUser]);
 
   // Online user tracking
   useEffect(() => {
     if (currentUser) {
-      console.log('Starting online tracking for user:', currentUser.uid, currentUser.displayName || currentUser.email);
       const userName = currentUser.displayName || currentUser.email || 'Anonymous';
       const heartbeatInterval = startHeartbeat(currentUser.uid, userName);
       
@@ -75,26 +84,32 @@ function AppContent() {
       
       // Cleanup on unmount or logout
       return () => {
-        console.log('Stopping online tracking for user:', currentUser.uid);
         stopHeartbeat(heartbeatInterval, currentUser.uid);
         clearInterval(cleanupInterval);
       };
     }
   }, [currentUser]);
 
-  const loadUserHistory = async () => {
+  const loadUserHistory = async (loadMore = false) => {
     if (!currentUser) return;
-    
-    console.log('App: Starting to load history for user:', currentUser.uid);
-    console.log('App: User email:', currentUser.email);
-    
+    if (loadMore && !hasMoreHistory) return; // No more data to load
+    if (historyLoaded && !loadMore) return; // Already loaded first page
     try {
       setHistoryLoading(true);
-      const userHistory = await getUserHistory(currentUser.uid);
-      console.log('App: Received history:', userHistory);
-      setHistory(userHistory);
+      const result = await getUserHistory(currentUser.uid, loadMore ? lastDoc || undefined : undefined);
+      if (loadMore) {
+        // Append to existing history
+        setHistory(prev => [...prev, ...result.history]);
+      } else {
+        // Replace history
+        setHistory(result.history);
+      }
+      
+      setLastDoc(result.lastDoc);
+      setHasMoreHistory(result.hasMore);
+      setHistoryLoaded(true);
     } catch (error) {
-      console.error('App: Failed to load history:', error);
+      // Silent error
     } finally {
       setHistoryLoading(false);
     }
@@ -108,20 +123,28 @@ function AppContent() {
       const docId = await saveHistory(currentUser.uid, entry);
       // Add to local state with ID
       setHistory(prev => [{ ...entry, id: docId }, ...prev]);
+      // Invalidate cache and reset pagination
+      invalidateHistoryCache(currentUser.uid);
+      setHistoryLoaded(false);
+      setLastDoc(null);
+      setHasMoreHistory(false);
     } catch (error) {
-      console.error('Failed to save history:', error);
     }
   };
 
   const handleDeleteHistory = async (index: number) => {
     const historyItem = history[index];
-    if (!historyItem?.id) return;
+    if (!historyItem?.id || !currentUser) return;
     
     try {
       await deleteHistory(historyItem.id);
       setHistory(prev => prev.filter((_, i) => i !== index));
+      // Invalidate cache and reset pagination
+      invalidateHistoryCache(currentUser.uid);
+      setHistoryLoaded(false);
+      setLastDoc(null);
+      setHasMoreHistory(false);
     } catch (error) {
-      console.error('Failed to delete history:', error);
     }
   };
 
@@ -129,7 +152,6 @@ function AppContent() {
     try {
       await logout();
     } catch (error) {
-      console.error('Failed to logout:', error);
     }
   };
 
@@ -169,7 +191,24 @@ function AppContent() {
             <div className="flex items-center gap-1.5 sm:gap-3">
                             
               {/* Quota Indicator */}
-              <QuotaIndicator />
+              {!userIsAdmin && <QuotaIndicator />}
+
+              {/* Admin Button */}
+              {userIsAdmin && (
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    activeTab === 'admin'
+                      ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                      : 'hover:bg-purple-100 dark:hover:bg-purple-900/30 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400'
+                  }`}
+                  title="Admin Dashboard"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                </button>
+              )}
 
               {/* Guideline Button */}
               <button
@@ -218,35 +257,6 @@ function AppContent() {
                 )}
               </button>
               
-              {/* Buy Us a Coffee Button */}
-              <button
-                onClick={() => setShowDonation(true)}
-                className="p-1.5 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors group"
-                title="Buy Us a Coffee"
-              >
-                <svg 
-                  className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h15v13c0 1.66-1.34 3-3 3H6c-1.66 0-3-1.34-3-3V3z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8h1a3 3 0 013 3v0a3 3 0 01-3 3h-1" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 21h9" />
-                </svg>
-              </button>
-              
-              {/* Export Questions Button */}
-              <button
-                onClick={() => setShowExporter(true)}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300"
-                title="Export Question Bank"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </button>
-              
               {/* Dark Mode Toggle */}
               <button
                 onClick={toggleDarkMode}
@@ -262,6 +272,25 @@ function AppContent() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                   </svg>
                 )}
+              </button>
+
+              {/* Buy Us a Coffee Button */}
+              <button
+                onClick={() => setShowDonation(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all group"
+                title="Support Us"
+              >
+                <svg 
+                  className="w-4 h-4 text-amber-600 dark:text-amber-400 transition-transform group-hover:rotate-12" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h15v13c0 1.66-1.34 3-3 3H6c-1.66 0-3-1.34-3-3V3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8h1a3 3 0 013 3v0a3 3 0 01-3 3h-1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 21h9" />
+                </svg>
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-400 hidden sm:inline">Buy us a coffee</span>
               </button>
               
               <div className="flex items-center gap-1.5">
@@ -322,10 +351,20 @@ function AppContent() {
           onDeleteHistory={handleDeleteHistory}
           isVisible={sidebarVisible}
           onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
+          onLoadHistory={() => loadUserHistory(false)}
+          onLoadMore={() => loadUserHistory(true)}
+          isLoading={historyLoading}
+          isLoaded={historyLoaded}
+          hasMore={hasMoreHistory}
         />
         
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto py-8 px-4 sm:px-6 lg:px-8">
+          {/* Admin Dashboard */}
+          {activeTab === 'admin' && userIsAdmin && (
+            <AdminDashboard />
+          )}
+          
           {/* We use hidden class instead of conditional rendering to persist state including scroll and inputs */}
           <div className={activeTab === TaskType.TASK_1 ? 'block' : 'hidden'}>
             <Task1 history={history} onAddToHistory={addToHistory} />
@@ -349,9 +388,6 @@ function AppContent() {
 
       {/* User Profile Modal */}
       {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
-      
-      {/* Question Exporter Modal */}
-      {showExporter && <QuestionExporter onClose={() => setShowExporter(false)} />}
       
       {/* API Key Settings Modal */}
       {showApiSettings && <ApiKeySettings onClose={() => {

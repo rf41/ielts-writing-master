@@ -27,7 +27,6 @@ const QuestionExporter: React.FC<QuestionExporterProps> = ({ onClose }) => {
         : allData.filter(q => q.taskType === filter);
       setQuestions(data);
     } catch (error) {
-      console.error('Error loading questions:', error);
     } finally {
       setLoading(false);
     }
@@ -38,7 +37,6 @@ const QuestionExporter: React.FC<QuestionExporterProps> = ({ onClose }) => {
       const taskType = filter === 'all' ? undefined : filter;
       await downloadQuestionsJSON(taskType);
     } catch (error) {
-      console.error('Error exporting questions:', error);
       alert('Failed to export questions');
     }
   };

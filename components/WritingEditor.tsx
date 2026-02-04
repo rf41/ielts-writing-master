@@ -51,7 +51,6 @@ const WritingEditor: React.FC<WritingEditorProps> = ({
         setHasChecked(true);
       }
     } catch (error) {
-      console.error("Grammar check failed", error);
     } finally {
       setIsChecking(false);
     }

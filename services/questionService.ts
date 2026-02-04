@@ -42,11 +42,8 @@ export const saveQuestion = async (question: Omit<Question, 'id' | 'createdAt' |
       createdAt: Timestamp.now(),
       usageCount: 1
     });
-    
-    console.log('Question saved with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error('Error saving question:', error);
     throw error;
   }
 };
@@ -78,7 +75,6 @@ export const getQuestionsByTaskType = async (taskType: string): Promise<Question
     
     return questions;
   } catch (error) {
-    console.error('Error loading questions:', error);
     return [];
   }
 };
@@ -109,7 +105,6 @@ export const getAllQuestions = async (): Promise<Question[]> => {
     
     return questions;
   } catch (error) {
-    console.error('Error loading all questions:', error);
     return [];
   }
 };
@@ -123,7 +118,6 @@ export const exportQuestionsAsJSON = async (taskType?: string): Promise<string> 
     
     return JSON.stringify(questions, null, 2);
   } catch (error) {
-    console.error('Error exporting questions:', error);
     throw error;
   }
 };
@@ -142,7 +136,6 @@ export const downloadQuestionsJSON = async (taskType?: string, filename?: string
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('Error downloading questions:', error);
     throw error;
   }
 };
