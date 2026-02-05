@@ -13,7 +13,13 @@ const CONTEXT = {
 
 // JSON output format templates
 const JSON_FORMATS = {
-  TASK1: (type: string) => `{"title":"","prompt":"","type":"${type}","xAxisKey":"","dataKeys":[],"data":[]}`,
+  TASK1: (type: string) => {
+    // Provide specific example for Pie Chart
+    if (type === ChartType.PIE || type === 'Pie Chart') {
+      return `{"title":"","prompt":"","type":"${type}","xAxisKey":"category","dataKeys":["value"],"data":[{"category":"CategoryName","value":123}]}`;
+    }
+    return `{"title":"","prompt":"","type":"${type}","xAxisKey":"","dataKeys":[],"data":[]}`;
+  },
   TASK2: '{"topic":"","prompt":""}',
   GRAMMAR: '{"text":"","type":"ok|correction","correction":"","explanation":""}',
   EVALUATION: '{"bandScore":0-9,"feedback":"","strengths":[],"improvements":[]}',
@@ -30,8 +36,13 @@ const MIN_WORDS = {
 
 // Prompt builders - compose prompts dynamically
 const buildPrompt = {
-  task1: (chartType: ChartType) => 
-    `Generate ${CONTEXT.IELTS} Task 1 ${chartType} with realistic data. Use current/recent topics (2020-2025). Data: logical trends, realistic values, clear comparison points. 5-7 data entries. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK1(chartType)}`,
+  task1: (chartType: ChartType) => {
+    // Special instruction for Pie Chart to ensure correct data structure
+    const pieInstruction = chartType === ChartType.PIE 
+      ? ' IMPORTANT for Pie Chart: xAxisKey="category", dataKeys=["value"], data format: [{"category":"Transport","value":30},{"category":"Housing","value":25}]. Each entry needs category (string) and value (number).' 
+      : '';
+    return `Generate ${CONTEXT.IELTS} Task 1 ${chartType} with realistic data. Use current/recent topics (2020-2025). Data: logical trends, realistic values, clear comparison points. 5-7 data entries.${pieInstruction} ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK1(chartType)}`;
+  },
   
   
   task2: () => 

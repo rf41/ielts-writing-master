@@ -207,7 +207,10 @@ function AppContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </div>
-              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">IELTS Writing Master</h1>
+              <h1 className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+                <span className="hidden sm:inline">IELTS Writing Master</span>
+                <span className="sm:hidden">IELTS WM</span>
+              </h1>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-3">
                             
@@ -298,7 +301,7 @@ function AppContent() {
               {/* Buy Us a Coffee Button */}
               <button
                 onClick={() => openModal('donation')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all group"
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all group"
                 title="Support Us"
               >
                 <svg 
@@ -311,7 +314,7 @@ function AppContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8h1a3 3 0 013 3v0a3 3 0 01-3 3h-1" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 21h9" />
                 </svg>
-                <span className="text-xs font-medium text-amber-700 dark:text-amber-400 hidden sm:inline">Buy us a coffee</span>
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-400 hidden lg:inline">Buy us a coffee</span>
               </button>
               
               <div className="flex items-center gap-1.5">
@@ -322,13 +325,16 @@ function AppContent() {
                   <div className="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-semibold">
                     {currentUser.displayName?.[0]?.toUpperCase() || 'U'}
                   </div>
-                  <span className="hidden sm:inline text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{currentUser.displayName || 'User'}</span>
+                  <span className="hidden md:inline text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{currentUser.displayName || 'User'}</span>
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="px-2 py-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
+                  title="Logout"
                 >
-                  Logout
+                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -347,7 +353,8 @@ function AppContent() {
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}
                 `}
               >
-                Task 1: Academic Report
+                <span className="hidden sm:inline">Task 1: Academic Report</span>
+                <span className="sm:hidden">Task 1</span>
               </button>
               <button
                 onClick={() => setTab(TaskType.TASK_2)}
@@ -358,7 +365,8 @@ function AppContent() {
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}
                 `}
               >
-                Task 2: Essay
+                <span className="hidden sm:inline">Task 2: Essay</span>
+                <span className="sm:hidden">Task 2</span>
               </button>
             </nav>
         </div>
@@ -380,7 +388,28 @@ function AppContent() {
         />
         
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto py-8 px-4 sm:px-6 lg:px-8">
+        <main className="flex-1 overflow-y-auto py-8 px-4 sm:px-6 lg:px-8 relative">
+          {/* Floating History Toggle Button - Mobile Only */}
+          {!uiState.sidebarVisible && (
+            <button
+              onClick={toggleSidebar}
+              className="md:hidden fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-110"
+              title="Open History"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {history.length > 0 && (
+                <>
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {history.length}
+                  </span>
+                  <span className="absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 animate-ping"></span>
+                </>
+              )}
+            </button>
+          )}
+          
           {/* Admin Dashboard */}
           {uiState.activeTab === 'admin' && userIsAdmin && (
             <AdminDashboard />

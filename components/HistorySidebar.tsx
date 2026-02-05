@@ -79,32 +79,44 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
 
   return (
     <>
-      {/* Sidebar - Always visible, width changes */}
-      <div className={`bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full transition-all duration-300 ${
-        isVisible ? 'w-80' : 'w-16'
+      {/* Mobile Overlay */}
+      {isVisible && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={onToggleVisibility}
+        />
+      )}
+      
+      {/* Sidebar - Responsive width and overlay on mobile */}
+      <div className={`bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full transition-all duration-300 relative z-50 ${
+        isVisible 
+          ? 'w-full sm:w-80 md:w-72 lg:w-80 fixed md:relative inset-y-0 left-0' 
+          : 'w-0 md:w-12 overflow-hidden md:overflow-visible'
       }`}>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div className={`p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between ${
+          !isVisible && 'hidden md:flex'
+        }`}>
           {isVisible ? (
             <>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">History</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{history.length} item{history.length !== 1 ? 's' : ''}</p>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">History</h2>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">{history.length} item{history.length !== 1 ? 's' : ''}</p>
               </div>
               <button
                 onClick={onToggleVisibility}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
-                title="Collapse Sidebar"
+                title="Close Sidebar"
               >
                 <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </>
           ) : (
             <button
               onClick={onToggleVisibility}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mx-auto"
-              title="Expand Sidebar"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mx-auto hidden md:block"
+              title="Open Sidebar"
             >
               <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />

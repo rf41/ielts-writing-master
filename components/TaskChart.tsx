@@ -61,13 +61,53 @@ const CustomTick = ({ x, y, payload }: any) => {
 };
 
 const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
+  // Normalize data for Pie Chart if needed
+  const normalizedData = useMemo(() => {
+    if (data.type === ChartType.PIE) {
+      // Check if data structure is correct for pie chart
+      // Pie chart needs: xAxisKey (category name), dataKeys (value key), data (array of {category, value})
+      const hasValidStructure = 
+        data.xAxisKey && 
+        data.dataKeys.length > 0 && 
+        data.data.length > 0 &&
+        data.data[0][data.xAxisKey] !== undefined &&
+        data.data[0][data.dataKeys[0]] !== undefined;
+
+      if (!hasValidStructure) {
+        // Try to auto-fix: if xAxisKey or dataKeys are missing/wrong
+        const firstItem = data.data[0] || {};
+        const keys = Object.keys(firstItem);
+        
+        // Assume first key is category, second is value
+        const categoryKey = data.xAxisKey || keys[0] || 'category';
+        const valueKey = data.dataKeys[0] || keys[1] || 'value';
+        
+        return {
+          ...data,
+          xAxisKey: categoryKey,
+          dataKeys: [valueKey],
+          data: data.data.map(item => {
+            // Ensure each item has the correct keys
+            const category = item[categoryKey] || Object.values(item)[0];
+            const value = item[valueKey] || Object.values(item)[1] || 0;
+            return {
+              [categoryKey]: category,
+              [valueKey]: typeof value === 'number' ? value : parseFloat(String(value)) || 0
+            };
+          })
+        };
+      }
+    }
+    return data;
+  }, [data]);
+
   // Memoize chart to prevent unnecessary re-renders
   const chartContent = useMemo(() => {
     const chartHeight = 300 * (zoomLevel / 100);
     const pieRadius = 80 * (zoomLevel / 100);
 
-    if (data.type === ChartType.TABLE) {
-      const keys = [data.xAxisKey, ...data.dataKeys];
+    if (normalizedData.type === ChartType.TABLE) {
+      const keys = [normalizedData.xAxisKey, ...normalizedData.dataKeys];
       return (
         <div className="overflow-x-auto" style={{ fontSize: `${zoomLevel}%` }}>
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
@@ -79,7 +119,7 @@ const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
                     </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {data.data.map((row, i) => (
+                    {normalizedData.data.map((row, i) => (
                         <tr key={i}>
                              {keys.map(k => (
                                 <td key={k} className="px-4 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">{formatNumber(row[k])}</td>
@@ -93,12 +133,12 @@ const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
     }
 
     return (
-      <ResponsiveContainer width="100%" height={chartHeight} key={`chart-${data.type}`}>
-        {data.type === ChartType.BAR ? (
-          <BarChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
+      <ResponsiveContainer width="100%" height={chartHeight} key={`chart-${normalizedData.type}`}>
+        {normalizedData.type === ChartType.BAR ? (
+          <BarChart data={normalizedData.data} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" className="dark:stroke-gray-600" />
             <XAxis 
-              dataKey={data.xAxisKey} 
+              dataKey={normalizedData.xAxisKey} 
               stroke="#666" 
               className="dark:stroke-gray-300" 
               tick={<CustomTick />}
@@ -108,7 +148,7 @@ const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
             <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} tickFormatter={formatNumber} />
             <Tooltip formatter={formatNumber} />
             <Legend />
-            {data.dataKeys.map((key, index) => (
+            {normalizedData.dataKeys.map((key, index) => (
               <Bar key={key} dataKey={key} fill={COLORS[index % COLORS.length]}>
                 <LabelList dataKey={key} position="top" content={(props: any) => {
                   const { x, y, value } = props;
@@ -121,11 +161,11 @@ const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
               </Bar>
             ))}
           </BarChart>
-        ) : data.type === ChartType.LINE ? (
-          <LineChart data={data.data} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
+        ) : normalizedData.type === ChartType.LINE ? (
+          <LineChart data={normalizedData.data} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" className="dark:stroke-gray-600" />
             <XAxis 
-              dataKey={data.xAxisKey} 
+              dataKey={normalizedData.xAxisKey} 
               stroke="#666" 
               className="dark:stroke-gray-300" 
               tick={<CustomTick />}
@@ -135,7 +175,7 @@ const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
             <YAxis stroke="#666" className="dark:stroke-gray-300" tick={{ fill: '#666' }} tickFormatter={formatNumber} />
             <Tooltip formatter={formatNumber} />
             <Legend />
-            {data.dataKeys.map((key, index) => (
+            {normalizedData.dataKeys.map((key, index) => (
               <Line type="monotone" key={key} dataKey={key} stroke={COLORS[index % COLORS.length]} strokeWidth={2}>
                  <LabelList dataKey={key} position="top" content={(props: any) => {
                   const { x, y, value } = props;
@@ -152,18 +192,18 @@ const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
         ) : (
           <PieChart>
              <Pie
-              data={data.data}
-              dataKey={data.dataKeys[0]} // Pie usually takes 1 value key
-              nameKey={data.xAxisKey}
+              data={normalizedData.data}
+              dataKey={normalizedData.dataKeys[0]} // Pie usually takes 1 value key
+              nameKey={normalizedData.xAxisKey}
               cx="50%"
               cy="50%"
               outerRadius={pieRadius}
               label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, value }) => {
                  // Custom label to show Name: Value
-                 return `${data.data[index][data.xAxisKey]}: ${formatNumber(value)}`;
+                 return `${normalizedData.data[index][normalizedData.xAxisKey]}: ${formatNumber(value)}`;
               }}
             >
-              {data.data.map((entry, index) => (
+              {normalizedData.data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
@@ -173,7 +213,7 @@ const TaskChart: React.FC<TaskChartProps> = ({ data, zoomLevel = 100 }) => {
         )}
       </ResponsiveContainer>
     );
-  }, [data, zoomLevel]);
+  }, [normalizedData, zoomLevel]);
 
   return chartContent;
 };
