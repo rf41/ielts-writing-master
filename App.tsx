@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { Toaster } from 'react-hot-toast';
 import { QueryDocumentSnapshot } from 'firebase/firestore';
 import Task1 from './components/Task1';
 import Task2 from './components/Task2';
@@ -13,46 +14,62 @@ import DonationModal from './components/DonationModal';
 import QuotaIndicator from './components/QuotaIndicator';
 import GuidelineModal from './components/GuidelineModal';
 import AdminDashboard from './components/AdminDashboard';
+import ErrorBoundary from './components/ErrorBoundary';
+import LoadingSpinner from './components/LoadingSpinner';
 import { TaskType, HistoryEntry } from './types';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DarkModeProvider, useDarkMode } from './contexts/DarkModeContext';
 import { getUserHistory, saveHistory, deleteHistory } from './services/historyService';
 import { startHeartbeat, stopHeartbeat, cleanupStaleUsers } from './services/onlineUserService';
-import { initializeQuota, clearQuotaCache } from './services/quotaService';
+import { initializeQuota, clearQuotaCache, getUserApiKey, clearUserApiKey } from './services/quotaService';
 import { invalidateHistoryCache, clearAllCache } from './services/cacheService';
 import { isAdmin } from './services/adminService';
+import { useUIState } from './hooks/useUIState';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TaskType | 'admin'>(TaskType.TASK_1);
+  const { state: uiState, openModal, closeModal, setTab, toggleSidebar, setSidebar } = useUIState();
   const [history, setHistory] = useState<Array<HistoryEntry & { id: string }>>([]);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
-  const [showProfile, setShowProfile] = useState(false);
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [showDonation, setShowDonation] = useState(false);
-  const [showGuideline, setShowGuideline] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [hasCustomApiKey, setHasCustomApiKey] = useState(false);
-  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
   const { currentUser, loading, logout } = useAuth();
   const { isDark, toggleDarkMode } = useDarkMode();
-  const userIsAdmin = currentUser ? isAdmin(currentUser.email) : false;
 
-  // Check for custom API key on mount
+  // Check admin status
+  useEffect(() => {
+    if (currentUser) {
+      setUserIsAdmin(isAdmin(currentUser.email));
+    } else {
+      setUserIsAdmin(false);
+    }
+  }, [currentUser]);
+
+  // Check for custom API key on mount and when user changes
   useEffect(() => {
     const checkCustomKey = () => {
-      const customKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
-      setHasCustomApiKey(!!customKey);
+      if (currentUser) {
+        const customKey = getUserApiKey(currentUser.uid);
+        setHasCustomApiKey(!!customKey);
+      } else {
+        setHasCustomApiKey(false);
+      }
     };
     
     checkCustomKey();
     
     // Listen for storage changes (in case key is added/removed)
     window.addEventListener('storage', checkCustomKey);
-    return () => window.removeEventListener('storage', checkCustomKey);
-  }, []);
+    // Listen for quota updates
+    window.addEventListener('quotaUpdated', checkCustomKey);
+    return () => {
+      window.removeEventListener('storage', checkCustomKey);
+      window.removeEventListener('quotaUpdated', checkCustomKey);
+    };
+  }, [currentUser]);
 
   // Initialize user on login (without loading history)
   useEffect(() => {
@@ -68,10 +85,16 @@ function AppContent() {
       clearQuotaCache();
       // Clear browser cache on logout
       clearAllCache();
+      // Note: We don't clear user API key on logout so it persists for next login
+      // If you want to clear it, uncomment the line below
+      // clearUserApiKey(currentUser.uid);
     }
   }, [currentUser]);
 
-  // Online user tracking
+  // DISABLED: Online user tracking (can be re-enabled later)
+  // Heartbeat writes: ~1,440 writes per user per month
+  // To re-enable: uncomment the useEffect below and uncomment <OnlineUserCounter /> in render
+  /*
   useEffect(() => {
     if (currentUser) {
       const userName = currentUser.displayName || currentUser.email || 'Anonymous';
@@ -89,6 +112,7 @@ function AppContent() {
       };
     }
   }, [currentUser]);
+  */
 
   const loadUserHistory = async (loadMore = false) => {
     if (!currentUser) return;
@@ -157,11 +181,8 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+      <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-gray-900">
+        <LoadingSpinner text="Loading..." />
       </div>
     );
   }
@@ -196,9 +217,9 @@ function AppContent() {
               {/* Admin Button */}
               {userIsAdmin && (
                 <button
-                  onClick={() => setActiveTab('admin')}
+                  onClick={() => setTab('admin')}
                   className={`p-1.5 rounded-lg transition-colors ${
-                    activeTab === 'admin'
+                    uiState.activeTab === 'admin'
                       ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
                       : 'hover:bg-purple-100 dark:hover:bg-purple-900/30 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400'
                   }`}
@@ -212,7 +233,7 @@ function AppContent() {
 
               {/* Guideline Button */}
               <button
-                onClick={() => setShowGuideline(true)}
+                onClick={() => openModal('guideline')}
                 className="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
                 title="Usage Guidelines & API Info"
               >
@@ -228,7 +249,7 @@ function AppContent() {
               
               {/* API Key Settings Button */}
               <button
-                onClick={() => setShowApiSettings(true)}
+                onClick={() => openModal('apiSettings')}
                 className={`relative p-1.5 rounded-lg transition-colors ${
                   hasCustomApiKey 
                     ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' 
@@ -276,7 +297,7 @@ function AppContent() {
 
               {/* Buy Us a Coffee Button */}
               <button
-                onClick={() => setShowDonation(true)}
+                onClick={() => openModal('donation')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all group"
                 title="Support Us"
               >
@@ -295,7 +316,7 @@ function AppContent() {
               
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => setShowProfile(true)}
+                  onClick={() => openModal('profile')}
                   className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                 >
                   <div className="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-xs font-semibold">
@@ -318,10 +339,10 @@ function AppContent() {
         <div className="w-full px-3 sm:px-4 lg:px-6">
             <nav className="-mb-px flex space-x-4 sm:space-x-8" aria-label="Tabs">
               <button
-                onClick={() => setActiveTab(TaskType.TASK_1)}
+                onClick={() => setTab(TaskType.TASK_1)}
                 className={`
                   whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors
-                  ${activeTab === TaskType.TASK_1
+                  ${uiState.activeTab === TaskType.TASK_1
                     ? 'border-primary text-primary dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}
                 `}
@@ -329,10 +350,10 @@ function AppContent() {
                 Task 1: Academic Report
               </button>
               <button
-                onClick={() => setActiveTab(TaskType.TASK_2)}
+                onClick={() => setTab(TaskType.TASK_2)}
                 className={`
                   whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors
-                  ${activeTab === TaskType.TASK_2
+                  ${uiState.activeTab === TaskType.TASK_2
                     ? 'border-primary text-primary dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}
                 `}
@@ -349,8 +370,8 @@ function AppContent() {
         <HistorySidebar 
           history={history} 
           onDeleteHistory={handleDeleteHistory}
-          isVisible={sidebarVisible}
-          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
+          isVisible={uiState.sidebarVisible}
+          onToggleVisibility={toggleSidebar}
           onLoadHistory={() => loadUserHistory(false)}
           onLoadMore={() => loadUserHistory(true)}
           isLoading={historyLoading}
@@ -361,16 +382,16 @@ function AppContent() {
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Admin Dashboard */}
-          {activeTab === 'admin' && userIsAdmin && (
+          {uiState.activeTab === 'admin' && userIsAdmin && (
             <AdminDashboard />
           )}
           
           {/* We use hidden class instead of conditional rendering to persist state including scroll and inputs */}
-          <div className={activeTab === TaskType.TASK_1 ? 'block' : 'hidden'}>
-            <Task1 history={history} onAddToHistory={addToHistory} />
+          <div className={uiState.activeTab === TaskType.TASK_1 ? 'block' : 'hidden'}>
+            <Task1 history={history} onAddToHistory={addToHistory} isAdmin={userIsAdmin} />
           </div>
-          <div className={activeTab === TaskType.TASK_2 ? 'block' : 'hidden'}>
-            <Task2 history={history} onAddToHistory={addToHistory} />
+          <div className={uiState.activeTab === TaskType.TASK_2 ? 'block' : 'hidden'}>
+            <Task2 history={history} onAddToHistory={addToHistory} isAdmin={userIsAdmin} />
           </div>
         </main>
       </div>
@@ -380,40 +401,70 @@ function AppContent() {
           <div className="max-w-7xl mx-auto px-4 text-center text-xs text-gray-400 dark:text-gray-500">
               Dev <a href="https://ridwancard.my.id" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">ridwancard.my.id</a>. Scores are estimates only and not official IELTS results.
           </div>
-          {/* Online User Counter - Integrated in Footer */}
+          {/* DISABLED: Online User Counter - can be re-enabled later */}
+          {/* 
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
             <OnlineUserCounter />
           </div>
+          */}
       </footer>
 
       {/* User Profile Modal */}
-      {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
+      {uiState.modals.profile && <UserProfile onClose={() => closeModal('profile')} />}
       
       {/* API Key Settings Modal */}
-      {showApiSettings && <ApiKeySettings onClose={() => {
-        setShowApiSettings(false);
+      {uiState.modals.apiSettings && <ApiKeySettings onClose={() => {
+        closeModal('apiSettings');
         // Recheck custom key status after modal closes
-        const customKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
-        setHasCustomApiKey(!!customKey);
+        if (currentUser) {
+          const customKey = getUserApiKey(currentUser.uid);
+          setHasCustomApiKey(!!customKey);
+        }
       }} />}
       
       {/* Guideline Modal */}
-      {showGuideline && <GuidelineModal isOpen={showGuideline} onClose={() => setShowGuideline(false)} />}
+      {uiState.modals.guideline && <GuidelineModal isOpen={uiState.modals.guideline} onClose={() => closeModal('guideline')} />}
       
       {/* Donation Modal */}
-      {showDonation && <DonationModal onClose={() => setShowDonation(false)} />}
+      {uiState.modals.donation && <DonationModal onClose={() => closeModal('donation')} />}
+
+      {/* Toast Notifications */}
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: isDark ? '#1f2937' : '#fff',
+            color: isDark ? '#f3f4f6' : '#111',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
     </div>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <DarkModeProvider>
-        <AppContent />
-        <Analytics />
-      </DarkModeProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <DarkModeProvider>
+          <AppContent />
+          <Analytics />
+        </DarkModeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

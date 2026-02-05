@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getDashboardStats, getAllUsers, deleteUser, DashboardStats, UserStats } from '../services/adminService';
+import toast from 'react-hot-toast';
+import { getDashboardStats, getAllUsers, deleteUser, recalculateAdminStats, DashboardStats, UserStats } from '../services/adminService';
+import { syncAllUsersStats } from '../services/historyService';
 import { useAuth } from '../contexts/AuthContext';
 import QuestionExporter from './QuestionExporter';
 
@@ -8,26 +10,63 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<UserStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'stats' | 'users'>('stats');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showExporter, setShowExporter] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadStats();
   }, []);
 
-  const loadData = async () => {
+  useEffect(() => {
+    if (activeTab === 'users') {
+      loadUsers();
+    }
+  }, [activeTab]);
+
+  // Load users when stats are loaded (for top 10 display in stats tab)
+  useEffect(() => {
+    if (stats && users.length === 0) {
+      loadUsers();
+    }
+  }, [stats]);
+
+  const loadStats = async () => {
     setLoading(true);
     try {
-      const [dashboardStats, allUsers] = await Promise.all([
-        getDashboardStats(),
-        getAllUsers(),
-      ]);
+      const dashboardStats = await getDashboardStats();
       setStats(dashboardStats);
-      setUsers(allUsers);
     } catch (error) {
+      console.error('Error loading stats:', error);
+      toast.error('Failed to load statistics');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const allUsers = await getAllUsers(50); // Limit to 50
+      setUsers(allUsers);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast.error('Failed to load users');
+    }
+  };
+
+  const handleRefreshStats = async () => {
+    setRefreshing(true);
+    try {
+      const freshStats = await recalculateAdminStats();
+      setStats(freshStats);
+      toast.success('✓ Statistics refreshed!');
+    } catch (error) {
+      console.error('Error refreshing stats:', error);
+      toast.error('✗ Failed to refresh stats');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -35,19 +74,28 @@ const AdminDashboard: React.FC = () => {
     try {
       await deleteUser(uid);
       setDeleteConfirm(null);
-      loadData();
-      
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
-      notification.textContent = '✓ User deleted successfully!';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
+      loadUsers(); // Reload users list
+      toast.success('✓ User deleted successfully!');
     } catch (error) {
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
-      notification.textContent = '✗ Failed to delete user';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
+      toast.error('✗ Failed to delete user');
+    }
+  };
+
+  const handleSyncStats = async () => {
+    if (!confirm('This will recalculate all user statistics from history data. This may take a while. Continue?')) {
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      await syncAllUsersStats();
+      await handleRefreshStats(); // Refresh admin stats after sync
+      toast.success('✓ All user stats synchronized successfully!');
+    } catch (error) {
+      console.error('Error syncing stats:', error);
+      toast.error('✗ Failed to sync stats: ' + (error as Error).message);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -67,17 +115,46 @@ const AdminDashboard: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Admin Dashboard</h1>
             <p className="text-gray-600 dark:text-gray-400">Welcome, {currentUser?.email}</p>
+            {stats && (
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                Last updated: {new Date(stats.lastUpdated).toLocaleString()}
+              </p>
+            )}
           </div>
-          <button
-            onClick={() => setShowExporter(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-white transition-colors shadow-sm"
-            title="Export Question Bank"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span className="text-sm font-medium">Export Questions</span>
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRefreshStats}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white transition-colors shadow-sm"
+              title="Refresh statistics cache"
+            >
+              <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="text-sm font-medium">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+            <button
+              onClick={handleSyncStats}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white transition-colors shadow-sm"
+              title="Sync user stats from history"
+            >
+              <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="text-sm font-medium">{syncing ? 'Syncing...' : 'Sync Stats'}</span>
+            </button>
+            <button
+              onClick={() => setShowExporter(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-white transition-colors shadow-sm"
+              title="Export Question Bank"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span className="text-sm font-medium">Export Questions</span>
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -196,41 +273,93 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Recent Active Users */}
+            {/* Activity Metrics - New Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Active Today</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.activeToday}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{stats.todayAttempts} attempts</p>
+                  </div>
+                  <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Active This Week</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.activeWeek}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{stats.weekAttempts} attempts</p>
+                  </div>
+                  <div className="w-12 h-12 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-cyan-600 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Task Distribution</p>
+                    <div className="flex gap-3 mt-2">
+                      <div>
+                        <p className="text-lg font-bold text-orange-600 dark:text-orange-400">T1: {stats.task1Attempts}</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-pink-600 dark:text-pink-400">T2: {stats.task2Attempts}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Users by Activity - Replace Recent Active Users */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Recent Active Users</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">User</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Attempts</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Avg Score</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Last Active</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.recentUsers.map((user) => (
-                      <tr key={user.uid} className="border-b border-gray-100 dark:border-gray-800">
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {user.displayName}
-                            </p>
-                            {user.displayName !== user.email && user.email && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">{user.totalAttempts}</td>
-                        <td className="py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">{user.avgBandScore || '-'}</td>
-                        <td className="py-3 px-4 text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(user.lastActive).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top 10 Active Users</h2>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className="text-sm text-primary hover:text-blue-700 font-medium"
+                >
+                  View All →
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {users.slice(0, 10).map((user, index) => (
+                  <div 
+                    key={user.uid}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition"
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {user.displayName}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {user.totalAttempts} attempts • Avg: {user.avgBandScore || '-'}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500">
+                      {new Date(user.lastActive).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -335,6 +464,5 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 };
-
 
 export default AdminDashboard;

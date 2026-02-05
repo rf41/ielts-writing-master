@@ -10,9 +10,9 @@ const QuotaIndicator: React.FC = () => {
   const updateQuota = async () => {
     if (!currentUser) return;
     
-    setIsCustom(isUsingCustomApiKey());
+    setIsCustom(isUsingCustomApiKey(currentUser.uid));
     
-    if (!isUsingCustomApiKey()) {
+    if (!isUsingCustomApiKey(currentUser.uid)) {
       try {
         const used = await getQuotaUsed(currentUser.uid);
         setRemaining(getMaxQuota() - used);

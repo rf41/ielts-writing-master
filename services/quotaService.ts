@@ -140,13 +140,43 @@ export const hasQuotaRemaining = async (userId: string): Promise<boolean> => {
   return remaining > 0;
 };
 
-export const isUsingCustomApiKey = (): boolean => {
-  return !!localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+/**
+ * Get user-specific API key from localStorage
+ * @param userId - User ID to get API key for
+ * @returns API key or null
+ */
+export const getUserApiKey = (userId: string): string | null => {
+  return localStorage.getItem(`GEMINI_API_KEY_${userId}`);
+};
+
+/**
+ * Set user-specific API key in localStorage
+ * @param userId - User ID
+ * @param apiKey - API key to store
+ */
+export const setUserApiKey = (userId: string, apiKey: string): void => {
+  localStorage.setItem(`GEMINI_API_KEY_${userId}`, apiKey);
+};
+
+/**
+ * Remove user-specific API key from localStorage
+ * @param userId - User ID
+ */
+export const removeUserApiKey = (userId: string): void => {
+  localStorage.removeItem(`GEMINI_API_KEY_${userId}`);
+};
+
+/**
+ * Check if user is using custom API key
+ * @param userId - User ID to check
+ */
+export const isUsingCustomApiKey = (userId: string): boolean => {
+  return !!getUserApiKey(userId);
 };
 
 export const canMakeRequest = async (userId: string): Promise<boolean> => {
   // If using custom API key, unlimited requests
-  if (isUsingCustomApiKey()) {
+  if (isUsingCustomApiKey(userId)) {
     return true;
   }
   // Otherwise check quota
@@ -165,4 +195,12 @@ export const getCachedQuota = (): number => {
 // Clear cache on logout
 export const clearQuotaCache = (): void => {
   quotaCache = null;
+};
+
+/**
+ * Clear user-specific API key on logout
+ * @param userId - User ID to clear API key for
+ */
+export const clearUserApiKey = (userId: string): void => {
+  removeUserApiKey(userId);
 };

@@ -1,10 +1,14 @@
-import { collection, query, getDocs, doc, updateDoc, deleteDoc, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, deleteDoc, where, orderBy, limit, getDoc, setDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
-const ADMIN_EMAILS = ['ridwancard@gmail.com'];
-
+/**
+ * Check if user is admin by email (single admin: ridwancard@gmail.com)
+ * OPTIMIZED: No Firestore read needed - saves quota
+ * @param email - User email to check
+ * @returns boolean - True if user is admin
+ */
 export const isAdmin = (email: string | null): boolean => {
-  return email ? ADMIN_EMAILS.includes(email.toLowerCase()) : false;
+  return email ? email.toLowerCase() === 'ridwancard@gmail.com' : false;
 };
 
 // IELTS band score rounding
@@ -40,161 +44,163 @@ export interface DashboardStats {
   avgBandScoreTask1: number;
   avgBandScoreTask2: number;
   todayAttempts: number;
-  recentUsers: UserStats[];
+  weekAttempts: number;
+  monthAttempts: number;
+  activeToday: number;
+  activeWeek: number;
+  task1Attempts: number;
+  task2Attempts: number;
+  lastUpdated: string;
 }
 
-export const getAllUsers = async (): Promise<UserStats[]> => {
+export interface TopUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  totalAttempts: number;
+  avgBandScore: number;
+  lastActive: string;
+}
+
+/**
+ * Get paginated users list with stats
+ * More efficient than loading all users at once
+ */
+export const getAllUsers = async (pageSize: number = 50): Promise<UserStats[]> => {
   try {
-    const usersSnapshot = await getDocs(collection(db, 'users'));
-    const statsSnapshot = await getDocs(collection(db, 'user_stats'));
+    // Only fetch user_stats (lighter than users + stats join)
+    const statsQuery = query(
+      collection(db, 'user_stats'),
+      orderBy('lastAttemptDate', 'desc'),
+      limit(pageSize)
+    );
     
-    // Map stats by userId for quick lookup
-    const statsMap = new Map();
-    statsSnapshot.docs.forEach(doc => {
-      statsMap.set(doc.id, doc.data());
-    });
-    
-    // Fallback: If no stats exist, query history (migration case)
-    const needsHistoryFallback = statsSnapshot.empty;
-    let historyByUser = new Map<string, any[]>();
-    
-    if (needsHistoryFallback) {
-      const allHistorySnapshot = await getDocs(collection(db, 'history'));
-      allHistorySnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.userId) {
-          if (!historyByUser.has(data.userId)) {
-            historyByUser.set(data.userId, []);
-          }
-          historyByUser.get(data.userId)!.push(data);
-        }
-      });
-    }
-    
+    const statsSnapshot = await getDocs(statsQuery);
     const users: UserStats[] = [];
 
-    for (const userDoc of usersSnapshot.docs) {
-      const userData = userDoc.data();
-      const userStats = statsMap.get(userDoc.id);
+    // Get user emails in parallel (only for displayed users)
+    const userPromises = statsSnapshot.docs.map(async (statsDoc) => {
+      const statsData = statsDoc.data();
+      const userId = statsDoc.id;
       
-      // Use stats if available, otherwise calculate from history
-      let totalAttempts, avgBandScore, lastActive;
+      // Try to get user email from user_stats first (cached)
+      let email = statsData.email || 'Unknown';
+      let displayName = statsData.displayName || email;
       
-      if (userStats) {
-        totalAttempts = userStats.totalAttempts || 0;
-        const rawAvg = userStats.avgBandScore || 0;
-        avgBandScore = rawAvg > 0 ? roundIELTSScore(rawAvg) : 0;
-        lastActive = userStats.lastAttemptDate || userData.createdAt || '';
-      } else if (needsHistoryFallback) {
-        // Fallback to history calculation
-        const userHistory = historyByUser.get(userDoc.id) || [];
-        totalAttempts = userHistory.length;
-        const scoresWithFeedback = userHistory.filter(h => h.feedback?.bandScore).map(h => h.feedback.bandScore);
-        const rawAvg = scoresWithFeedback.length > 0 
-          ? scoresWithFeedback.reduce((a, b) => a + b, 0) / scoresWithFeedback.length 
-          : 0;
-        avgBandScore = rawAvg > 0 ? roundIELTSScore(rawAvg) : 0;
-        lastActive = userHistory.length > 0 
-          ? userHistory.sort((a, b) => new Date(b.timestamp || b.createdAt?.toDate()).getTime() - new Date(a.timestamp || a.createdAt?.toDate()).getTime())[0].timestamp || userData.createdAt
-          : userData.createdAt;
-      } else {
-        // No stats and no history fallback
-        totalAttempts = 0;
-        avgBandScore = 0;
-        lastActive = userData.createdAt || '';
+      // If not in stats, fetch from users collection
+      if (!statsData.email) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            email = userDoc.data().email || 'Unknown';
+            displayName = userDoc.data().displayName || email;
+          }
+        } catch (e) {
+          // Silently fail, use default
+        }
       }
+      
+      const rawAvg = statsData.avgBandScore || 0;
+      
+      return {
+        uid: userId,
+        email,
+        displayName,
+        createdAt: statsData.createdAt || '',
+        totalAttempts: statsData.totalAttempts || 0,
+        avgBandScore: rawAvg > 0 ? roundIELTSScore(rawAvg) : 0,
+        lastActive: statsData.lastAttemptDate || statsData.createdAt || '',
+      };
+    });
 
-      users.push({
-        uid: userDoc.id,
-        email: userData.email || 'No email',
-        displayName: userData.displayName || userData.email || 'Unknown',
-        createdAt: userData.createdAt || '',
-        totalAttempts,
-        avgBandScore,
-        lastActive,
-      });
-    }
-
-    return users.sort((a, b) => new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime());
+    const usersData = await Promise.all(userPromises);
+    return usersData;
   } catch (error) {
+    console.error('Error getting users:', error);
     throw error;
   }
 };
 
+/**
+ * Get dashboard stats from pre-aggregated adminStats document
+ * MOST EFFICIENT: Only 1 Firestore read!
+ */
 export const getDashboardStats = async (): Promise<DashboardStats> => {
   try {
-    // Get all users
-    const usersSnapshot = await getDocs(collection(db, 'users'));
-    const totalUsers = usersSnapshot.size;
-
-    // Get all user stats (much lighter than all history)
-    const statsSnapshot = await getDocs(collection(db, 'user_stats'));
+    // Try to read from adminStats document first (1 read)
+    const adminStatsDoc = await getDoc(doc(db, 'adminStats', 'global'));
     
-    // If stats collection is empty, fallback to history
-    if (statsSnapshot.empty) {
-      const allHistorySnapshot = await getDocs(collection(db, 'history'));
-      let totalAttempts = 0;
-      let task1Scores: number[] = [];
-      let task2Scores: number[] = [];
-      let todayAttempts = 0;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      allHistorySnapshot.docs.forEach(historyDoc => {
-        const data = historyDoc.data();
-        totalAttempts++;
-
-        const attemptDate = data.timestamp ? new Date(data.timestamp) : data.createdAt?.toDate();
-        if (attemptDate && attemptDate >= today) {
-          todayAttempts++;
-        }
-
-        if (data.feedback?.bandScore) {
-          if (data.taskType === 'Task 1') {
-            task1Scores.push(data.feedback.bandScore);
-          } else if (data.taskType === 'Task 2') {
-            task2Scores.push(data.feedback.bandScore);
-          }
-        }
-      });
-
-      const rawAvgTask1 = task1Scores.length > 0
-        ? task1Scores.reduce((a, b) => a + b, 0) / task1Scores.length
-        : 0;
-      const avgBandScoreTask1 = rawAvgTask1 > 0 ? roundIELTSScore(rawAvgTask1) : 0;
-
-      const rawAvgTask2 = task2Scores.length > 0
-        ? task2Scores.reduce((a, b) => a + b, 0) / task2Scores.length
-        : 0;
-      const avgBandScoreTask2 = rawAvgTask2 > 0 ? roundIELTSScore(rawAvgTask2) : 0;
-
-      const recentUsers = await getAllUsers();
-
-      return {
-        totalUsers,
-        totalAttempts,
-        avgBandScoreTask1,
-        avgBandScoreTask2,
-        todayAttempts,
-        recentUsers: recentUsers.slice(0, 10),
-      };
+    if (adminStatsDoc.exists()) {
+      const data = adminStatsDoc.data();
+      
+      // Check if data is stale (older than 5 minutes)
+      const lastUpdated = data.lastUpdated?.toDate() || new Date(0);
+      const now = new Date();
+      const ageMinutes = (now.getTime() - lastUpdated.getTime()) / 60000;
+      
+      // If data is fresh, return it directly
+      if (ageMinutes < 5) {
+        console.log('[AdminService] Using cached admin stats (age:', Math.round(ageMinutes), 'min)');
+        return {
+          totalUsers: data.totalUsers || 0,
+          totalAttempts: data.totalAttempts || 0,
+          avgBandScoreTask1: data.avgBandScoreTask1 || 0,
+          avgBandScoreTask2: data.avgBandScoreTask2 || 0,
+          todayAttempts: data.todayAttempts || 0,
+          weekAttempts: data.weekAttempts || 0,
+          monthAttempts: data.monthAttempts || 0,
+          activeToday: data.activeToday || 0,
+          activeWeek: data.activeWeek || 0,
+          task1Attempts: data.task1Attempts || 0,
+          task2Attempts: data.task2Attempts || 0,
+          lastUpdated: lastUpdated.toISOString(),
+        };
+      }
+      
+      console.log('[AdminService] Admin stats stale (age:', Math.round(ageMinutes), 'min), recalculating...');
     }
     
-    // Use user_stats aggregation
+    // If no cache or stale, calculate from user_stats
+    console.log('[AdminService] Calculating admin stats from user_stats...');
+    return await recalculateAdminStats();
+  } catch (error) {
+    console.error('[AdminService] Error getting dashboard stats:', error);
+    throw error;
+  }
+};
+
+/**
+ * Recalculate admin stats from user_stats collection
+ * This is expensive but cached in adminStats document
+ */
+export const recalculateAdminStats = async (): Promise<DashboardStats> => {
+  try {
+    const statsSnapshot = await getDocs(collection(db, 'user_stats'));
+    const usersSnapshot = await getDocs(collection(db, 'users'));
+    
+    const totalUsers = usersSnapshot.size;
     let totalAttempts = 0;
     let task1TotalScore = 0;
     let task1Count = 0;
     let task2TotalScore = 0;
     let task2Count = 0;
     let todayAttempts = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    let weekAttempts = 0;
+    let monthAttempts = 0;
+    let activeToday = 0;
+    let activeWeek = 0;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     statsSnapshot.docs.forEach(doc => {
       const data = doc.data();
-      totalAttempts += data.totalAttempts || 0;
+      const attempts = data.totalAttempts || 0;
+      totalAttempts += attempts;
       
-      // Aggregate task-specific scores
+      // Task-specific aggregation
       if (data.task1Attempts > 0) {
         task1TotalScore += (data.avgTask1Score || 0) * data.task1Attempts;
         task1Count += data.task1Attempts;
@@ -204,11 +210,20 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
         task2Count += data.task2Attempts;
       }
       
-      // Check if last attempt was today
+      // Time-based metrics
       if (data.lastAttemptDate) {
         const attemptDate = new Date(data.lastAttemptDate);
+        
         if (attemptDate >= today) {
-          todayAttempts++;
+          todayAttempts += attempts;
+          activeToday++;
+        }
+        if (attemptDate >= weekAgo) {
+          weekAttempts += attempts;
+          activeWeek++;
+        }
+        if (attemptDate >= monthAgo) {
+          monthAttempts += attempts;
         }
       }
     });
@@ -219,18 +234,31 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     const rawAvgTask2 = task2Count > 0 ? task2TotalScore / task2Count : 0;
     const avgBandScoreTask2 = rawAvgTask2 > 0 ? roundIELTSScore(rawAvgTask2) : 0;
 
-    // Get recent active users
-    const recentUsers = await getAllUsers();
-
-    return {
+    const stats: DashboardStats = {
       totalUsers,
       totalAttempts,
       avgBandScoreTask1,
       avgBandScoreTask2,
       todayAttempts,
-      recentUsers: recentUsers.slice(0, 10),
+      weekAttempts,
+      monthAttempts,
+      activeToday,
+      activeWeek,
+      task1Attempts: task1Count,
+      task2Attempts: task2Count,
+      lastUpdated: new Date().toISOString(),
     };
+
+    // Save to adminStats for caching
+    await setDoc(doc(db, 'adminStats', 'global'), {
+      ...stats,
+      lastUpdated: Timestamp.now(),
+    });
+    
+    console.log('[AdminService] Admin stats recalculated and cached');
+    return stats;
   } catch (error) {
+    console.error('[AdminService] Error recalculating admin stats:', error);
     throw error;
   }
 };

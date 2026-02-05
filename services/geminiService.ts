@@ -31,7 +31,7 @@ const MIN_WORDS = {
 // Prompt builders - compose prompts dynamically
 const buildPrompt = {
   task1: (chartType: ChartType) => 
-    `Generate ${CONTEXT.IELTS} Task 1 ${chartType} with realistic data. Use current/recent topics (2020-2025): environment, tech, economy, demographics, health, education. Data: logical trends, realistic values, clear comparison points. 5-7 data entries. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK1(chartType)}`,
+    `Generate ${CONTEXT.IELTS} Task 1 ${chartType} with realistic data. Use current/recent topics (2020-2025). Data: logical trends, realistic values, clear comparison points. 5-7 data entries. ${CONTEXT.JSON_OUTPUT} ${JSON_FORMATS.TASK1(chartType)}`,
   
   
   task2: () => 
@@ -50,11 +50,14 @@ const buildPrompt = {
 // ============================================================================
 // CLIENT & ERROR HANDLING
 // ============================================================================
+import { auth } from './firebase';
+import { getUserApiKey } from './quotaService';
 
 // Helper to get client safely - checks for custom API key first
 const getClient = () => {
-  // Check for custom API key in localStorage first
-  const customApiKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+  // Check for user-specific custom API key first
+  const userId = auth.currentUser?.uid;
+  const customApiKey = userId ? getUserApiKey(userId) : null;
   const apiKey = customApiKey || import.meta.env.VITE_GEMINI_API_KEY;
   
   if (!apiKey) {
@@ -158,7 +161,7 @@ export const checkGrammar = async (text: string): Promise<CorrectionResponse> =>
     const prompt = buildPrompt.grammar(text);
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         responseMimeType: "application/json",

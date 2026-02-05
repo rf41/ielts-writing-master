@@ -15,7 +15,7 @@ import {
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { HistoryEntry } from '../types';
+import { HistoryEntry, FeedbackResult } from '../types';
 import { 
   getCachedHistory, 
   setCachedHistory, 
@@ -34,13 +34,23 @@ export const saveHistory = async (userId: string, entry: HistoryEntry): Promise<
       ...entry,
       createdAt: Timestamp.now()
     });
+    
     // Update user stats aggregation if feedback exists
     if (entry.feedback) {
-      await updateUserStats(userId, entry.taskType, entry.feedback);
+      try {
+        await updateUserStats(userId, entry.taskType, entry.feedback);
+        console.log('[HistoryService] Stats updated for user:', userId, 'taskType:', entry.taskType);
+      } catch (statsError) {
+        console.error('[HistoryService] Failed to update user stats:', statsError);
+        // Don't throw - history is saved successfully, stats can be recalculated later
+      }
+    } else {
+      console.warn('[HistoryService] No feedback provided, stats not updated');
     }
     
     return docRef.id;
   } catch (error) {
+    console.error('[HistoryService] Failed to save history:', error);
     throw error;
   }
 };
@@ -92,10 +102,11 @@ export const getUserHistory = async (
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         // Only load essential metadata - full data loaded on detail view
+        // This significantly reduces data transfer and improves performance
         history.push({
           id: doc.id,
           taskType: data.taskType,
-          prompt: data.prompt,
+          prompt: data.prompt.substring(0, 100) + '...', // Only first 100 chars for preview
           userText: '', // Will be loaded on demand
           feedback: data.feedback ? { 
             bandScore: data.feedback.bandScore,
@@ -135,7 +146,7 @@ export const getUserHistory = async (
         history.push({
           id: doc.id,
           taskType: data.taskType,
-          prompt: data.prompt,
+          prompt: data.prompt.substring(0, 100) + '...',
           userText: '', // Will be loaded on demand
           feedback: data.feedback ? { 
             bandScore: data.feedback.bandScore,
@@ -212,6 +223,94 @@ export const deleteHistory = async (historyId: string): Promise<void> => {
   try {
     await deleteDoc(doc(db, HISTORY_COLLECTION, historyId));
   } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Sync user stats from all history entries
+ * Use this to fix stats that are out of sync
+ */
+export const syncUserStatsFromHistory = async (userId: string): Promise<void> => {
+  try {
+    console.log('[HistoryService] Syncing stats for user:', userId);
+    
+    // Fetch ALL history for user (not paginated)
+    const q = query(
+      collection(db, HISTORY_COLLECTION),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const historyData: Array<{ taskType: string; feedback?: FeedbackResult }> = [];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      historyData.push({
+        taskType: data.taskType,
+        feedback: data.feedback
+      });
+    });
+    
+    console.log('[HistoryService] Found', historyData.length, 'history entries');
+    
+    // Use recalculateUserStats to rebuild stats from scratch
+    const { recalculateUserStats } = await import('./userStatsService');
+    await recalculateUserStats(userId, historyData);
+    
+    console.log('[HistoryService] Stats sync completed');
+  } catch (error) {
+    console.error('[HistoryService] Failed to sync stats:', error);
+    throw error;
+  }
+};
+
+/**
+ * Sync stats for all users (admin only)
+ * Use this to fix all user stats at once
+ */
+export const syncAllUsersStats = async (): Promise<void> => {
+  try {
+    console.log('[HistoryService] Syncing stats for all users...');
+    
+    // Get all history
+    const querySnapshot = await getDocs(collection(db, HISTORY_COLLECTION));
+    
+    // Group by userId
+    const userHistories = new Map<string, Array<{ taskType: string; feedback?: FeedbackResult }>>();
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const userId = data.userId;
+      
+      if (!userHistories.has(userId)) {
+        userHistories.set(userId, []);
+      }
+      
+      userHistories.get(userId)!.push({
+        taskType: data.taskType,
+        feedback: data.feedback
+      });
+    });
+    
+    console.log('[HistoryService] Found', userHistories.size, 'users with history');
+    
+    // Recalculate stats for each user
+    const { recalculateUserStats } = await import('./userStatsService');
+    
+    for (const [userId, historyData] of userHistories.entries()) {
+      try {
+        console.log('[HistoryService] Syncing stats for user:', userId, '- entries:', historyData.length);
+        await recalculateUserStats(userId, historyData);
+      } catch (error) {
+        console.error('[HistoryService] Failed to sync stats for user:', userId, error);
+        // Continue with next user
+      }
+    }
+    
+    console.log('[HistoryService] All users stats sync completed');
+  } catch (error) {
+    console.error('[HistoryService] Failed to sync all users stats:', error);
     throw error;
   }
 };

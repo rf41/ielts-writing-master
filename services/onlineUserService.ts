@@ -12,8 +12,8 @@ import {
 import { db } from './firebase';
 
 const ONLINE_USERS_COLLECTION = 'onlineUsers';
-const HEARTBEAT_INTERVAL = 30000; // 30 seconds
-const ONLINE_THRESHOLD = 60000; // 1 minute
+const HEARTBEAT_INTERVAL = 1800000; // 30 minutes
+const ONLINE_THRESHOLD = 2400000; // 40 minutes
 
 export const updateOnlineStatus = async (userId: string, userName: string) => {
   try {

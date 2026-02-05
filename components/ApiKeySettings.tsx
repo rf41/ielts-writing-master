@@ -1,25 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { getUserApiKey, setUserApiKey, removeUserApiKey } from '../services/quotaService';
 
 interface ApiKeySettingsProps {
   onClose: () => void;
 }
 
 const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onClose }) => {
+  const { currentUser } = useAuth();
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    // Load existing API key from localStorage
-    const existingKey = localStorage.getItem('CUSTOM_GEMINI_API_KEY');
-    if (existingKey) {
-      setApiKey(existingKey);
+    // Load existing API key from localStorage for current user
+    if (currentUser) {
+      const existingKey = getUserApiKey(currentUser.uid);
+      if (existingKey) {
+        setApiKey(existingKey);
+      }
     }
-  }, []);
+  }, [currentUser]);
 
   const handleSave = () => {
-    if (apiKey.trim()) {
-      localStorage.setItem('CUSTOM_GEMINI_API_KEY', apiKey.trim());
+    if (apiKey.trim() && currentUser) {
+      setUserApiKey(currentUser.uid, apiKey.trim());
       setSaved(true);
       // Dispatch event to update quota indicator
       window.dispatchEvent(new Event('quotaUpdated'));
@@ -33,18 +38,20 @@ const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onClose }) => {
   };
 
   const handleClear = () => {
-    localStorage.removeItem('CUSTOM_GEMINI_API_KEY');
-    setApiKey('');
-    setSaved(true);
-    // Dispatch event to update quota indicator
-    window.dispatchEvent(new Event('quotaUpdated'));
-    setTimeout(() => {
-      setSaved(false);
-      window.location.reload();
-    }, 1500);
+    if (currentUser) {
+      removeUserApiKey(currentUser.uid);
+      setApiKey('');
+      setSaved(true);
+      // Dispatch event to update quota indicator
+      window.dispatchEvent(new Event('quotaUpdated'));
+      setTimeout(() => {
+        setSaved(false);
+        window.location.reload();
+      }, 1500);
+    }
   };
 
-  const isUsingCustomKey = !!localStorage.getItem('CUSTOM_GEMINI_API_KEY');
+  const isUsingCustomKey = currentUser ? !!getUserApiKey(currentUser.uid) : false;
 
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">

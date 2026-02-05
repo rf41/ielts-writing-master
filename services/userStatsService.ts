@@ -46,11 +46,14 @@ export const updateUserStats = async (
   feedback: FeedbackResult
 ): Promise<void> => {
   try {
+    console.log('[UserStatsService] Updating stats for user:', userId, 'taskType:', taskType, 'score:', feedback.bandScore);
+    
     const statsRef = doc(db, USER_STATS_COLLECTION, userId);
     const statsSnap = await getDoc(statsRef);
     
     if (!statsSnap.exists()) {
       // Initialize if not exists
+      console.log('[UserStatsService] Stats doc not found, initializing...');
       await initializeUserStats(userId);
       await updateUserStats(userId, taskType, feedback); // Retry after init
       return;
@@ -95,7 +98,10 @@ export const updateUserStats = async (
       progressTrend: newProgressTrend,
       lastUpdated: new Date().toISOString()
     });
+    
+    console.log('[UserStatsService] Stats updated successfully. Total attempts:', newTotalAttempts);
   } catch (error) {
+    console.error('[UserStatsService] Error updating stats:', error);
     throw error;
   }
 };

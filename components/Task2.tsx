@@ -1,19 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Task2Data, TaskType, FeedbackResult, HistoryEntry, GrammarSegment } from '../types';
 import { generateTask2Prompt, evaluateWriting } from '../services/geminiService';
 import { saveQuestion } from '../services/questionService';
 import { canMakeRequest, incrementQuota, isUsingCustomApiKey, getQuotaUsed } from '../services/quotaService';
 import { useAuth } from '../contexts/AuthContext';
+import { useTimer } from '../hooks/useTimer';
 import WritingEditor from './WritingEditor';
 import ScoreFeedback from './ScoreFeedback';
 
 interface Task2Props {
   history: HistoryEntry[];
   onAddToHistory: (entry: HistoryEntry) => void;
+  isAdmin?: boolean;
 }
 
-const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
+const Task2: React.FC<Task2Props> = ({ history, onAddToHistory, isAdmin = false }) => {
   const { currentUser } = useAuth();
+  const { seconds: timerSeconds, isRunning: isTimerRunning, toggle: toggleTimer, reset: resetTimer, formatTime } = useTimer();
   const [taskData, setTaskData] = useState<Task2Data | null>(null);
   const [loading, setLoading] = useState(false);
   const [userText, setUserText] = useState("");
@@ -24,41 +28,6 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [quotaRemaining, setQuotaRemaining] = useState(3);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (isTimerRunning) {
-      timerIntervalRef.current = setInterval(() => {
-        setTimerSeconds(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-    }
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-    };
-  }, [isTimerRunning]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const toggleTimer = () => {
-    setIsTimerRunning(!isTimerRunning);
-  };
-
-  const resetTimer = () => {
-    setIsTimerRunning(false);
-    setTimerSeconds(0);
-  };
 
   const handleGenerate = async () => {
     if (!currentUser) return;
@@ -66,11 +35,9 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
     // Check quota before generating
     const canGenerate = await canMakeRequest(currentUser.uid);
     if (!canGenerate) {
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
-      notification.textContent = '✗ Quota exceeded (3 attempts). Please use your own API key for unlimited access.';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 5000);
+      toast.error('✗ Quota exceeded (3 attempts). Please use your own API key for unlimited access.', {
+        duration: 5000
+      });
       return;
     }
     
@@ -86,7 +53,7 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
       setTaskData(data);
       
       // Increment quota only for default API key users
-      if (!isUsingCustomApiKey()) {
+      if (!isUsingCustomApiKey(currentUser.uid)) {
         await incrementQuota(currentUser.uid);
       }
       
@@ -98,11 +65,9 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
       });
     } catch (e: any) {
       console.error(e);
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
-      notification.textContent = '✗ ' + (e?.message || "Failed to generate task. Please try again.");
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 5000);
+      toast.error('✗ ' + (e?.message || "Failed to generate task. Please try again."), {
+        duration: 5000
+      });
     } finally {
       setLoading(false);
     }
@@ -127,21 +92,13 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
         grammarSegments: currentSegments
       });
       
-      // Show success notification
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
-      notification.textContent = '✓ History saved automatically!';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
-      
+      toast.success('✓ History saved automatically!');
       setCanSave(false);
     } catch (e: any) {
       console.error(e);
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-20 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
-      notification.textContent = '✗ ' + (e?.message || "Evaluation failed. Please try again.");
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 5000);
+      toast.error('✗ ' + (e?.message || "Evaluation failed. Please try again."), {
+        duration: 5000
+      });
     } finally {
       setEvaluating(false);
     }
@@ -154,17 +111,14 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
     setFeedback(null);
     setCurrentSegments([]);
     setCanSave(false);
-    setTimerSeconds(0);
-    setIsTimerRunning(false);
+    resetTimer();
     setShowGenerateConfirm(false);
     
-    // Show notification
-    const notification = document.createElement('div');
-    notification.className = 'fixed top-20 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-down';
-    notification.textContent = 'Ready for new task. Click Generate to start!';
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 3000);
+    toast('Ready for new task. Click Generate to start!', {
+      icon: '📝',
+    });
   };
+
 
 
 
@@ -174,13 +128,31 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
       <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
         <div className="text-gray-700 dark:text-gray-300 font-medium">IELTS Writing Task 2 (Essay)</div>
         <div className="flex gap-2 items-center">
-          {!taskData && (
+          {!taskData ? (
             <button 
               onClick={handleGenerate} 
               disabled={loading}
               className="px-6 py-2 bg-secondary dark:bg-gray-700 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-600 transition disabled:opacity-50 font-medium shadow-sm"
             >
               {loading ? 'Generating...' : 'Generate Topic'}
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                setShowGenerateConfirm(true);
+                if (currentUser && !isUsingCustomApiKey(currentUser.uid)) {
+                  const used = await getQuotaUsed(currentUser.uid);
+                  setQuotaRemaining(3 - used);
+                }
+              }}
+              disabled={!feedback}
+              className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              title={!feedback ? "Complete and evaluate your answer first" : "Generate a new task"}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Generate New Task
             </button>
           )}
         </div>
@@ -235,32 +207,6 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
       {/* Task Content */}
       {taskData && (
         <div className="relative">
-          {/* Zoom Controls */}
-          <div className="absolute top-4 right-4 flex gap-2 z-10">
-            <button
-              onClick={() => setZoomLevel(Math.max(70, zoomLevel - 10))}
-              disabled={zoomLevel <= 70}
-              className="p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition"
-              title="Zoom Out"
-            >
-              <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-              </svg>
-            </button>
-            <div className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm">
-              {zoomLevel}%
-            </div>
-            <button
-              onClick={() => setZoomLevel(Math.min(150, zoomLevel + 10))}
-              disabled={zoomLevel >= 150}
-              className="p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition"
-              title="Zoom In"
-            >
-              <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-              </svg>
-            </button>
-          </div>
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 animate-fade-in-down" style={{ fontSize: `${zoomLevel}%` }}>
           <div className="mb-6 p-6 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
             <h3 className="text-sm font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wide mb-1">{taskData.topic}</h3>
@@ -272,6 +218,7 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
             onChange={setUserText} 
             placeholder="Write your essay here..."
             onSegmentsChange={setCurrentSegments}
+            isAdmin={isAdmin}
           />
 
           <ScoreFeedback 
@@ -280,27 +227,6 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
             onEvaluate={handleEvaluate} 
             canEvaluate={userText.length > 100} 
           />
-
-          {/* Generate New Button - Show after evaluation */}
-          {feedback && (
-            <div className="mt-4 flex justify-center">
-              <button
-                onClick={async () => {
-                  setShowGenerateConfirm(true);
-                  if (currentUser && !isUsingCustomApiKey()) {
-                    const used = await getQuotaUsed(currentUser.uid);
-                    setQuotaRemaining(3 - used);
-                  }
-                }}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-lg transition-all transform hover:scale-105 flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Generate New Task
-              </button>
-            </div>
-          )}
         </div>
         </div>
       )}
@@ -329,7 +255,7 @@ const Task2: React.FC<Task2Props> = ({ history, onAddToHistory }) => {
             <p className="text-gray-700 dark:text-gray-300 mb-6">
               Your current task, answer, and evaluation will be cleared. The task has been saved to history. Are you sure you want to start a new task?
             </p>
-            {currentUser && !isUsingCustomApiKey() && (
+            {currentUser && !isUsingCustomApiKey(currentUser.uid) && (
               <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <div className="flex items-center gap-2 text-sm">
                   <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

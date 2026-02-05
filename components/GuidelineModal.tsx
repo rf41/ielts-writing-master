@@ -17,9 +17,9 @@ const GuidelineModal: React.FC<GuidelineModalProps> = ({ isOpen, onClose }) => {
     const loadQuota = async () => {
       if (!currentUser) return;
       
-      setIsCustom(isUsingCustomApiKey());
+      setIsCustom(isUsingCustomApiKey(currentUser.uid));
       
-      if (!isUsingCustomApiKey()) {
+      if (!isUsingCustomApiKey(currentUser.uid)) {
         try {
           const used = await getQuotaUsed(currentUser.uid);
           setRemaining(maxQuota - used);
@@ -158,8 +158,8 @@ const GuidelineModal: React.FC<GuidelineModalProps> = ({ isOpen, onClose }) => {
               Usage Tips
             </h3>
             <div className="space-y-1 text-xs text-gray-700 dark:text-gray-300">
-              <p>💡 Grammar check limited to 1x per task</p>
               <p>💡 Use your own Free Gemini API key for generate ~6-7 complete tasks per day</p>
+              <p>💡 Hover the correction word to see suggestions</p>
               <p>💡 All evaluations auto-saved to history</p>
             </div>
           </div>
