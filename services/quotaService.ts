@@ -1,5 +1,6 @@
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, runTransaction } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { secureSetItem, secureGetItem, secureRemoveItem, clearSecureStorage } from '../utils/encryption';
 
 // Quota management for default API key usage
 const USERS_COLLECTION = 'users';
@@ -111,22 +112,54 @@ export const getQuotaUsed = async (userId: string): Promise<number> => {
 
 export const incrementQuota = async (userId: string): Promise<void> => {
   try {
-    const current = await getQuotaUsed(userId);
-    const newUsed = current + 1;
+    const userRef = doc(db, USERS_COLLECTION, userId);
     
-    const userDoc = doc(db, USERS_COLLECTION, userId);
-    await updateDoc(userDoc, {
-      quotaUsed: newUsed,
-      lastUpdated: new Date().toISOString()
+    // Use transaction to prevent race condition
+    await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      
+      if (!userSnap.exists()) {
+        // Create new user document
+        const currentDate = getJakartaDate();
+        const currentUser = auth.currentUser;
+        transaction.set(userRef, {
+          quotaUsed: 1,
+          lastResetDate: currentDate,
+          lastUpdated: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          email: currentUser?.email || '',
+          displayName: currentUser?.displayName || currentUser?.email || ''
+        });
+        quotaCache = { userId, used: 1 };
+        return;
+      }
+      
+      const data = userSnap.data();
+      const currentDate = getJakartaDate();
+      
+      // Check if quota needs to be reset for new day
+      if (shouldResetQuota(data.lastResetDate)) {
+        transaction.update(userRef, {
+          quotaUsed: 1,
+          lastResetDate: currentDate,
+          lastUpdated: new Date().toISOString()
+        });
+        quotaCache = { userId, used: 1 };
+      } else {
+        const newUsed = (data.quotaUsed || 0) + 1;
+        transaction.update(userRef, {
+          quotaUsed: newUsed,
+          lastUpdated: new Date().toISOString()
+        });
+        quotaCache = { userId, used: newUsed };
+      }
     });
-    
-    // Update cache
-    quotaCache = { userId, used: newUsed };
     
     // Dispatch event for UI update
     window.dispatchEvent(new Event('quotaUpdated'));
   } catch (error) {
-    throw error;
+    console.error('[QuotaService] Transaction error:', error);
+    throw new Error('Failed to update quota. Please try again.');
   }
 };
 
@@ -141,21 +174,27 @@ export const hasQuotaRemaining = async (userId: string): Promise<boolean> => {
 };
 
 /**
- * Get user-specific API key from localStorage
+ * Get user-specific API key from encrypted localStorage
  * @param userId - User ID to get API key for
  * @returns API key or null
  */
 export const getUserApiKey = (userId: string): string | null => {
-  return localStorage.getItem(`GEMINI_API_KEY_${userId}`);
+  const apiKey = secureGetItem(`GEMINI_API_KEY_${userId}`, userId);
+  console.log('[QuotaService] getUserApiKey', {
+    userId,
+    hasKey: !!apiKey,
+    keyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'null'
+  });
+  return apiKey;
 };
 
 /**
- * Set user-specific API key in localStorage
+ * Set user-specific API key in encrypted localStorage
  * @param userId - User ID
- * @param apiKey - API key to store
+ * @param apiKey - API key to store (will be encrypted)
  */
 export const setUserApiKey = (userId: string, apiKey: string): void => {
-  localStorage.setItem(`GEMINI_API_KEY_${userId}`, apiKey);
+  secureSetItem(`GEMINI_API_KEY_${userId}`, apiKey, userId);
 };
 
 /**
@@ -163,7 +202,7 @@ export const setUserApiKey = (userId: string, apiKey: string): void => {
  * @param userId - User ID
  */
 export const removeUserApiKey = (userId: string): void => {
-  localStorage.removeItem(`GEMINI_API_KEY_${userId}`);
+  secureRemoveItem(`GEMINI_API_KEY_${userId}`);
 };
 
 /**
@@ -198,9 +237,11 @@ export const clearQuotaCache = (): void => {
 };
 
 /**
- * Clear user-specific API key on logout
+ * Clear user-specific API key on logout (secure deletion)
  * @param userId - User ID to clear API key for
  */
 export const clearUserApiKey = (userId: string): void => {
   removeUserApiKey(userId);
+  // Also clear all secure storage on logout
+  clearSecureStorage();
 };

@@ -63,6 +63,11 @@ const buildPrompt = {
 // ============================================================================
 import { auth } from './firebase';
 import { getUserApiKey } from './quotaService';
+import { 
+  checkAiGenerationRateLimit, 
+  checkGrammarRateLimit,
+  formatRetryTime 
+} from '../utils/rateLimiter';
 
 // Helper to get client safely - checks for custom API key first
 const getClient = () => {
@@ -119,6 +124,18 @@ const handleApiError = (error: any): never => {
 export const generateTask1Prompt = async (chartType: ChartType): Promise<Task1Data> => {
   try {
     const ai = getClient();
+    const userId = auth.currentUser?.uid;
+    
+    // Rate limiting check
+    if (userId) {
+      const rateLimit = checkAiGenerationRateLimit(userId);
+      if (!rateLimit.allowed) {
+        throw new Error(
+          `Rate limit exceeded. Please wait ${formatRetryTime(rateLimit.retryAfter)} before trying again.`
+        );
+      }
+    }
+    
     const prompt = buildPrompt.task1(chartType);
 
     const response = await ai.models.generateContent({
@@ -141,6 +158,18 @@ export const generateTask1Prompt = async (chartType: ChartType): Promise<Task1Da
 export const generateTask2Prompt = async (): Promise<Task2Data> => {
   try {
     const ai = getClient();
+    const userId = auth.currentUser?.uid;
+    
+    // Rate limiting check
+    if (userId) {
+      const rateLimit = checkAiGenerationRateLimit(userId);
+      if (!rateLimit.allowed) {
+        throw new Error(
+          `Rate limit exceeded. Please wait ${formatRetryTime(rateLimit.retryAfter)} before trying again.`
+        );
+      }
+    }
+    
     const prompt = buildPrompt.task2();
 
     const response = await ai.models.generateContent({
@@ -169,6 +198,18 @@ export const generateTask2Prompt = async (): Promise<Task2Data> => {
 export const checkGrammar = async (text: string): Promise<CorrectionResponse> => {
   try {
     const ai = getClient();
+    const userId = auth.currentUser?.uid;
+    
+    // Rate limiting check for grammar
+    if (userId) {
+      const rateLimit = checkGrammarRateLimit(userId);
+      if (!rateLimit.allowed) {
+        throw new Error(
+          `Rate limit exceeded. Please wait ${formatRetryTime(rateLimit.retryAfter)} before trying again.`
+        );
+      }
+    }
+    
     const prompt = buildPrompt.grammar(text);
 
     const response = await ai.models.generateContent({

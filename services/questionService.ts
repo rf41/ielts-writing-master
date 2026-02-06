@@ -5,9 +5,6 @@ import {
   where, 
   orderBy, 
   getDocs,
-  doc,
-  updateDoc,
-  increment,
   Timestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -16,27 +13,10 @@ import { Question, Task1Data, Task2Data } from '../types';
 const QUESTIONS_COLLECTION = 'questions';
 
 // Save a new question to the database
+// AI-generated questions are always unique, no need to check for duplicates
 export const saveQuestion = async (question: Omit<Question, 'id' | 'createdAt' | 'usageCount'>): Promise<string> => {
   try {
-    // Check if question already exists (by prompt)
-    const q = query(
-      collection(db, QUESTIONS_COLLECTION),
-      where('prompt', '==', question.prompt),
-      where('taskType', '==', question.taskType)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      // Question exists, increment usage count
-      const existingDoc = querySnapshot.docs[0];
-      await updateDoc(doc(db, QUESTIONS_COLLECTION, existingDoc.id), {
-        usageCount: increment(1)
-      });
-      return existingDoc.id;
-    }
-    
-    // New question, add to database
+    // Directly add new question (AI generates unique content every time)
     const docRef = await addDoc(collection(db, QUESTIONS_COLLECTION), {
       ...question,
       createdAt: Timestamp.now(),

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GrammarSegment } from '../types';
-import { checkGrammar } from '../services/geminiService';
+import { checkGrammar } from '../services/geminiAdapter';
 import GrammarDisplay from './GrammarDisplay';
 
 interface WritingEditorProps {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { ChartType, Task1Data, TaskType, FeedbackResult, HistoryEntry, GrammarSegment } from '../types';
-import { generateTask1Prompt, evaluateWriting } from '../services/geminiService';
+import { generateTask1Prompt, evaluateWriting } from '../services/geminiAdapter';
 import { saveQuestion } from '../services/questionService';
 import { canMakeRequest, incrementQuota, isUsingCustomApiKey, getQuotaUsed } from '../services/quotaService';
 import { useAuth } from '../contexts/AuthContext';
